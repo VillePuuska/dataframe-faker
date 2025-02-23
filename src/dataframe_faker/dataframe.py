@@ -33,15 +33,29 @@ ALPHABET = string.ascii_letters + string.digits + " "
 
 def generate_fake_dataframe(
     schema: str | StructType,
-    constraints: dict[str, Constraint | None],
     spark: SparkSession,
+    constraints: dict[str, Constraint | None] | None = None,
     rows: int = 100,
     faker: Faker | None = None,
 ) -> DataFrame:
     if isinstance(schema, str):
         schema = convert_schema_string_to_schema(schema=schema, spark=spark)
 
-    raise NotImplementedError
+    if constraints is None:
+        constraint = None
+    else:
+        constraint = StructConstraint(element_constraints=constraints)
+
+    if faker is None:
+        faker = Faker()
+
+    # Somehow pyright thinks list[dict[str, Any]] does not match any of the `spark.createDataFrame()`
+    # overloads, but list[Any] does. Go figure...
+    data: list[Any] = [
+        generate_fake_value(dtype=schema, faker=faker, constraint=constraint)
+        for _ in range(rows)
+    ]
+    return spark.createDataFrame(data=data, schema=schema)
 
 
 def convert_schema_string_to_schema(schema: str, spark: SparkSession) -> StructType:
@@ -192,8 +206,15 @@ def generate_fake_value(
                 constraint = StructConstraint()
             constraint = cast(StructConstraint, constraint)
 
-            # TODO: implement struct
-            raise NotImplementedError("TODO")
+            faked_data = {}
+            for field in dtype.fields:
+                data = generate_fake_value(
+                    dtype=field.dataType,
+                    faker=faker,
+                    constraint=constraint.element_constraints.get(field.name),
+                )
+                faked_data[field.name] = data
+            return faked_data
         case TimestampType():
             if constraint is None:
                 constraint = TimestampConstraint()

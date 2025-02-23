@@ -5,7 +5,7 @@ from typing import Literal
 
 @dataclass(kw_only=True)
 class Constraint:
-    nullable: bool = False
+    null_chance: float = 0.0
 
 
 @dataclass(kw_only=True)

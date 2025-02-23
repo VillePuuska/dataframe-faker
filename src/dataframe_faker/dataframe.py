@@ -66,6 +66,7 @@ def convert_schema_string_to_schema(schema: str, spark: SparkSession) -> StructT
 def generate_fake_value(
     dtype: StructType,
     faker: Faker,
+    nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> dict[str, Any]: ...
 
@@ -74,6 +75,7 @@ def generate_fake_value(
 def generate_fake_value(
     dtype: StringType,
     faker: Faker,
+    nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> str: ...
 
@@ -82,6 +84,7 @@ def generate_fake_value(
 def generate_fake_value(
     dtype: IntegerType,
     faker: Faker,
+    nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> int: ...
 
@@ -90,6 +93,7 @@ def generate_fake_value(
 def generate_fake_value(
     dtype: FloatType,
     faker: Faker,
+    nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> float: ...
 
@@ -98,6 +102,7 @@ def generate_fake_value(
 def generate_fake_value(
     dtype: ArrayType,
     faker: Faker,
+    nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> list[Any]: ...
 
@@ -106,6 +111,7 @@ def generate_fake_value(
 def generate_fake_value(
     dtype: BooleanType,
     faker: Faker,
+    nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> bool: ...
 
@@ -114,6 +120,7 @@ def generate_fake_value(
 def generate_fake_value(
     dtype: DateType,
     faker: Faker,
+    nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> datetime.date: ...
 
@@ -122,6 +129,7 @@ def generate_fake_value(
 def generate_fake_value(
     dtype: TimestampType,
     faker: Faker,
+    nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> datetime.datetime: ...
 
@@ -130,6 +138,7 @@ def generate_fake_value(
 def generate_fake_value(
     dtype: DataType,
     faker: Faker,
+    nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> Any: ...
 
@@ -137,6 +146,7 @@ def generate_fake_value(
 def generate_fake_value(
     dtype: DataType,
     faker: Faker,
+    nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> Any:
     if constraint is not None and not _check_dtype_and_constraint_match(
@@ -149,7 +159,10 @@ def generate_fake_value(
         )
         raise ValueError(error_msg)
 
-    # TODO: handle nullability before match
+    if nullable and constraint is not None and constraint.null_chance > 0.0:
+        if random.random() < constraint.null_chance:
+            return None
+
     match dtype:
         case ArrayType():
             if constraint is None:
@@ -163,6 +176,7 @@ def generate_fake_value(
                 generate_fake_value(
                     dtype=dtype.elementType,
                     faker=faker,
+                    nullable=dtype.containsNull,
                     constraint=constraint.element_constraint,
                 )
                 for _ in range(size)
@@ -211,6 +225,7 @@ def generate_fake_value(
                 data = generate_fake_value(
                     dtype=field.dataType,
                     faker=faker,
+                    nullable=field.nullable,
                     constraint=constraint.element_constraints.get(field.name),
                 )
                 faked_data[field.name] = data

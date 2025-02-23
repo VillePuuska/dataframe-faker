@@ -1,5 +1,7 @@
 import datetime
-from typing import Any, overload
+import random
+import string
+from typing import Any, cast, overload
 
 from faker import Faker
 from pyspark.sql import DataFrame, SparkSession
@@ -26,6 +28,8 @@ from .constraints import (
     TimestampConstraint,
 )
 
+ALPHABET = string.ascii_letters + string.digits + " "
+
 
 def generate_fake_dataframe(
     schema: str | StructType,
@@ -42,10 +46,6 @@ def generate_fake_dataframe(
 
 def convert_schema_string_to_schema(schema: str, spark: SparkSession) -> StructType:
     return spark.createDataFrame([], schema=schema).schema
-
-
-def generate_fake_row(schema: StructType, faker: Faker) -> dict[str, Any]:
-    raise NotImplementedError
 
 
 @overload
@@ -112,33 +112,96 @@ def generate_fake_value(
 ) -> datetime.datetime: ...
 
 
+@overload
+def generate_fake_value(
+    dtype: DataType,
+    faker: Faker,
+    constraint: Constraint | None = None,
+) -> Any: ...
+
+
 def generate_fake_value(
     dtype: DataType,
     faker: Faker,
     constraint: Constraint | None = None,
 ) -> Any:
-    if not _check_dtype_and_constraint_match(dtype=dtype, constraint=constraint):
-        raise ValueError(
-            f"Constraint type does not match dtype: constraint {constraint.__class__}, dtype: {dtype.__class__}"
+    if constraint is not None and not _check_dtype_and_constraint_match(
+        dtype=dtype, constraint=constraint
+    ):
+        error_msg = (
+            "Constraint type does not match dtype: "
+            + f"constraint {constraint.__class__}, "
+            + f"dtype: {dtype.__class__}"
         )
+        raise ValueError(error_msg)
 
+    # TODO: handle nullability before match
     match dtype:
         case ArrayType():
-            ...
+            if constraint is None:
+                constraint = ArrayConstraint()
+            constraint = cast(ArrayConstraint, constraint)
+
+            size = random.randrange(
+                start=constraint.min_length, stop=constraint.max_length + 1
+            )
+            return [
+                generate_fake_value(
+                    dtype=dtype.elementType,
+                    faker=faker,
+                    constraint=constraint.element_constraint,
+                )
+                for _ in range(size)
+            ]
         case BooleanType():
-            ...
+            return random.random() > 0.5
         case DateType():
-            ...
+            if constraint is None:
+                constraint = DateConstraint()
+            constraint = cast(DateConstraint, constraint)
+
+            return faker.date_between_dates(
+                date_start=constraint.min_value, date_end=constraint.max_value
+            )
         case FloatType():
-            ...
+            if constraint is None:
+                constraint = FloatConstraint()
+            constraint = cast(FloatConstraint, constraint)
+
+            return random.uniform(a=constraint.min_value, b=constraint.max_value)
         case IntegerType():
-            ...
+            if constraint is None:
+                constraint = IntegerConstraint()
+            constraint = cast(IntegerConstraint, constraint)
+
+            return random.randrange(
+                start=constraint.min_value, stop=constraint.max_value + 1
+            )
         case StringType():
-            ...
+            if constraint is None:
+                constraint = StringConstraint()
+            constraint = cast(StringConstraint, constraint)
+
+            # TODO: actually handle different string types
+            size = random.randrange(
+                start=constraint.min_length, stop=constraint.max_length + 1
+            )
+            return "".join(random.choices(population=ALPHABET, k=size))
         case StructType():
-            ...
+            if constraint is None:
+                constraint = StructConstraint()
+            constraint = cast(StructConstraint, constraint)
+
+            # TODO: implement struct
+            raise NotImplementedError("TODO")
         case TimestampType():
-            ...
+            if constraint is None:
+                constraint = TimestampConstraint()
+            constraint = cast(TimestampConstraint, constraint)
+
+            return faker.date_time_between(
+                start_date=constraint.min_value, end_date=constraint.max_value
+            )
         case _:
             raise ValueError("Unsupported dtype")
     raise NotImplementedError

@@ -36,7 +36,7 @@ def generate_fake_dataframe(
     spark: SparkSession,
     constraints: dict[str, Constraint | None] | None = None,
     rows: int = 100,
-    faker: Faker | None = None,
+    fake: Faker | None = None,
 ) -> DataFrame:
     if isinstance(schema, str):
         schema = convert_schema_string_to_schema(schema=schema, spark=spark)
@@ -46,13 +46,13 @@ def generate_fake_dataframe(
     else:
         constraint = StructConstraint(element_constraints=constraints)
 
-    if faker is None:
-        faker = Faker()
+    if fake is None:
+        fake = Faker()
 
     # Somehow pyright thinks list[dict[str, Any]] does not match any of the `spark.createDataFrame()`
     # overloads, but list[Any] does. Go figure...
     data: list[Any] = [
-        generate_fake_value(dtype=schema, faker=faker, constraint=constraint)
+        generate_fake_value(dtype=schema, fake=fake, constraint=constraint)
         for _ in range(rows)
     ]
     return spark.createDataFrame(data=data, schema=schema)
@@ -65,7 +65,7 @@ def convert_schema_string_to_schema(schema: str, spark: SparkSession) -> StructT
 @overload
 def generate_fake_value(
     dtype: StructType,
-    faker: Faker,
+    fake: Faker,
     nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> dict[str, Any]: ...
@@ -74,7 +74,7 @@ def generate_fake_value(
 @overload
 def generate_fake_value(
     dtype: StringType,
-    faker: Faker,
+    fake: Faker,
     nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> str: ...
@@ -83,7 +83,7 @@ def generate_fake_value(
 @overload
 def generate_fake_value(
     dtype: IntegerType,
-    faker: Faker,
+    fake: Faker,
     nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> int: ...
@@ -92,7 +92,7 @@ def generate_fake_value(
 @overload
 def generate_fake_value(
     dtype: FloatType,
-    faker: Faker,
+    fake: Faker,
     nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> float: ...
@@ -101,7 +101,7 @@ def generate_fake_value(
 @overload
 def generate_fake_value(
     dtype: ArrayType,
-    faker: Faker,
+    fake: Faker,
     nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> list[Any]: ...
@@ -110,7 +110,7 @@ def generate_fake_value(
 @overload
 def generate_fake_value(
     dtype: BooleanType,
-    faker: Faker,
+    fake: Faker,
     nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> bool: ...
@@ -119,7 +119,7 @@ def generate_fake_value(
 @overload
 def generate_fake_value(
     dtype: DateType,
-    faker: Faker,
+    fake: Faker,
     nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> datetime.date: ...
@@ -128,7 +128,7 @@ def generate_fake_value(
 @overload
 def generate_fake_value(
     dtype: TimestampType,
-    faker: Faker,
+    fake: Faker,
     nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> datetime.datetime: ...
@@ -137,7 +137,7 @@ def generate_fake_value(
 @overload
 def generate_fake_value(
     dtype: DataType,
-    faker: Faker,
+    fake: Faker,
     nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> Any: ...
@@ -145,7 +145,7 @@ def generate_fake_value(
 
 def generate_fake_value(
     dtype: DataType,
-    faker: Faker,
+    fake: Faker,
     nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> Any:
@@ -175,7 +175,7 @@ def generate_fake_value(
             return [
                 generate_fake_value(
                     dtype=dtype.elementType,
-                    faker=faker,
+                    fake=fake,
                     nullable=dtype.containsNull,
                     constraint=constraint.element_constraint,
                 )
@@ -188,7 +188,7 @@ def generate_fake_value(
                 constraint = DateConstraint()
             constraint = cast(DateConstraint, constraint)
 
-            return faker.date_between_dates(
+            return fake.date_between_dates(
                 date_start=constraint.min_value, date_end=constraint.max_value
             )
         case FloatType():
@@ -210,11 +210,7 @@ def generate_fake_value(
                 constraint = StringConstraint()
             constraint = cast(StringConstraint, constraint)
 
-            # TODO: actually handle different string types
-            size = random.randrange(
-                start=constraint.min_length, stop=constraint.max_length + 1
-            )
-            return "".join(random.choices(population=ALPHABET, k=size))
+            return _generate_fake_string(fake=fake, constraint=constraint)
         case StructType():
             if constraint is None:
                 constraint = StructConstraint()
@@ -224,7 +220,7 @@ def generate_fake_value(
             for field in dtype.fields:
                 data = generate_fake_value(
                     dtype=field.dataType,
-                    faker=faker,
+                    fake=fake,
                     nullable=field.nullable,
                     constraint=constraint.element_constraints.get(field.name),
                 )
@@ -235,7 +231,7 @@ def generate_fake_value(
                 constraint = TimestampConstraint()
             constraint = cast(TimestampConstraint, constraint)
 
-            return faker.date_time_between(
+            return fake.date_time_between(
                 start_date=constraint.min_value, end_date=constraint.max_value
             )
         case _:
@@ -271,3 +267,28 @@ def _check_dtype_and_constraint_match(
             return isinstance(constraint, TimestampConstraint)
         case _:
             raise ValueError("Unsupported dtype")
+
+
+def _generate_fake_string(fake: Faker, constraint: StringConstraint) -> str:
+    match constraint.string_type:
+        case "address":
+            return ""
+        case "any":
+            size = random.randrange(
+                start=constraint.min_length, stop=constraint.max_length + 1
+            )
+            return "".join(random.choices(population=ALPHABET, k=size))
+        case "email":
+            return fake.email()
+        case "first_name":
+            return fake.first_name()
+        case "last_name":
+            return fake.last_name()
+        case "name":
+            return fake.name()
+        case "phone_number":
+            return fake.phone_number()
+        case "uuid4":
+            return fake.uuid4()
+        case _:
+            raise ValueError(f"Unknown string type: {constraint.string_type}")

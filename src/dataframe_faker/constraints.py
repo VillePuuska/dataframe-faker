@@ -58,3 +58,4 @@ class StructConstraint(Constraint):
 class TimestampConstraint(Constraint):
     min_value: datetime.datetime = datetime.datetime(year=2020, month=1, day=1)
     max_value: datetime.datetime = datetime.datetime(year=2024, month=12, day=31)
+    tzinfo: datetime.tzinfo | None = None

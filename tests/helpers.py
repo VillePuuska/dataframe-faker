@@ -1,6 +1,12 @@
 import json
+import re
 
 from pyspark.sql.types import StructType
+
+
+def is_valid_email(email: str) -> bool:
+    email_re = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    return re.fullmatch(pattern=email_re, string=email) is not None
 
 
 def assert_schema_equal(

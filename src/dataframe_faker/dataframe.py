@@ -232,7 +232,9 @@ def generate_fake_value(
             constraint = cast(TimestampConstraint, constraint)
 
             return fake.date_time_between(
-                start_date=constraint.min_value, end_date=constraint.max_value
+                start_date=constraint.min_value,
+                end_date=constraint.max_value,
+                tzinfo=constraint.tzinfo,
             )
         case _:
             raise ValueError("Unsupported dtype")

@@ -39,7 +39,7 @@ def generate_fake_dataframe(
     fake: Faker | None = None,
 ) -> DataFrame:
     if isinstance(schema, str):
-        schema = convert_schema_string_to_schema(schema=schema, spark=spark)
+        schema = _convert_schema_string_to_schema(schema=schema, spark=spark)
 
     if constraints is None:
         constraint = None
@@ -58,7 +58,7 @@ def generate_fake_dataframe(
     return spark.createDataFrame(data=data, schema=schema)
 
 
-def convert_schema_string_to_schema(schema: str, spark: SparkSession) -> StructType:
+def _convert_schema_string_to_schema(schema: str, spark: SparkSession) -> StructType:
     return spark.createDataFrame([], schema=schema).schema
 
 
@@ -231,10 +231,13 @@ def generate_fake_value(
                 constraint = TimestampConstraint()
             constraint = cast(TimestampConstraint, constraint)
 
+            tzinfo = constraint.tzinfo
+            if tzinfo is None:
+                tzinfo = constraint.min_value.tzinfo
             dt = fake.date_time_between(
                 start_date=constraint.min_value,
                 end_date=constraint.max_value,
-                tzinfo=constraint.tzinfo,
+                tzinfo=tzinfo,
             )
             # NOTE: For some reason Faker does not respect limits when generating
             # microseconds so the datetime can fall out of the given range.

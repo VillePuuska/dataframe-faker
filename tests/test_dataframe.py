@@ -28,7 +28,7 @@ from dataframe_faker.constraints import (
 from dataframe_faker.dataframe import (
     ALPHABET,
     _check_dtype_and_constraint_match,
-    convert_schema_string_to_schema,
+    _convert_schema_string_to_schema,
     generate_fake_dataframe,
     generate_fake_value,
 )
@@ -43,7 +43,7 @@ def test_convert_schema_string_to_schema(spark: SparkSession) -> None:
         "id: int not null, str_col: string, struct_col: struct<arr: array<float>>"
     )
 
-    actual = convert_schema_string_to_schema(schema=schema_str, spark=spark)
+    actual = _convert_schema_string_to_schema(schema=schema_str, spark=spark)
     expected = StructType(
         [
             StructField(name="id", dataType=IntegerType(), nullable=False),

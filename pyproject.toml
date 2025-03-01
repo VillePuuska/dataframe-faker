@@ -1,7 +1,7 @@
 [project]
 name = "dataframe-faker"
 version = "0.1.0"
-description = "Simple helper for generating fake data that matches a PySpark DataFrame schema with Faker."
+description = "A simple helper for generating DataFrames filled with fake data with the help of Faker."
 readme = "README.md"
 authors = [
     { name = "Ville Puuska", email = "puuskaville@gmail.com" }

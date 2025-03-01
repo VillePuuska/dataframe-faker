@@ -38,6 +38,28 @@ def generate_fake_dataframe(
     rows: int = 100,
     fake: Faker | None = None,
 ) -> DataFrame:
+    """
+    Function to generate a PySpark DataFrame with schema matching `schema`
+    filled with fake data conforming to constraints specified by `constraints`.
+
+    Parameters
+    ----------
+    schema
+        Either a string that PySpark can parse, e.g. "id: int, name: string, arr: array<float>"
+        or a `StructType` schema definition.
+
+    spark
+        A SparkSession to use for creating the DataFrame.
+
+    constraints : optional
+        A dictionary mapping column names to `Constraint`s.
+
+    rows
+        How many rows should the result DataFrame contain.
+
+    fake : optional
+        A `Faker` object to use when generating fake dates, strings, or timestamps.
+    """
     if isinstance(schema, str):
         schema = _convert_schema_string_to_schema(schema=schema, spark=spark)
 
@@ -67,7 +89,7 @@ def generate_fake_value(
     dtype: StructType,
     fake: Faker,
     nullable: bool = False,
-    constraint: Constraint | None = None,
+    constraint: StructConstraint | None = None,
 ) -> dict[str, Any]: ...
 
 
@@ -76,7 +98,7 @@ def generate_fake_value(
     dtype: StringType,
     fake: Faker,
     nullable: bool = False,
-    constraint: Constraint | None = None,
+    constraint: StringConstraint | None = None,
 ) -> str: ...
 
 
@@ -85,7 +107,7 @@ def generate_fake_value(
     dtype: IntegerType,
     fake: Faker,
     nullable: bool = False,
-    constraint: Constraint | None = None,
+    constraint: IntegerConstraint | None = None,
 ) -> int: ...
 
 
@@ -94,7 +116,7 @@ def generate_fake_value(
     dtype: FloatType,
     fake: Faker,
     nullable: bool = False,
-    constraint: Constraint | None = None,
+    constraint: FloatConstraint | None = None,
 ) -> float: ...
 
 
@@ -103,7 +125,7 @@ def generate_fake_value(
     dtype: ArrayType,
     fake: Faker,
     nullable: bool = False,
-    constraint: Constraint | None = None,
+    constraint: ArrayConstraint | None = None,
 ) -> list[Any]: ...
 
 
@@ -112,6 +134,7 @@ def generate_fake_value(
     dtype: BooleanType,
     fake: Faker,
     nullable: bool = False,
+    # TODO: change when BooleanConstraint is implemented
     constraint: Constraint | None = None,
 ) -> bool: ...
 
@@ -121,7 +144,7 @@ def generate_fake_value(
     dtype: DateType,
     fake: Faker,
     nullable: bool = False,
-    constraint: Constraint | None = None,
+    constraint: DateConstraint | None = None,
 ) -> datetime.date: ...
 
 
@@ -130,7 +153,7 @@ def generate_fake_value(
     dtype: TimestampType,
     fake: Faker,
     nullable: bool = False,
-    constraint: Constraint | None = None,
+    constraint: TimestampConstraint | None = None,
 ) -> datetime.datetime: ...
 
 
@@ -149,6 +172,29 @@ def generate_fake_value(
     nullable: bool = False,
     constraint: Constraint | None = None,
 ) -> Any:
+    """
+    Function to generate a fake value with type/schema matching `dtype`
+    and conforming to constraints specified by `constraint`.
+
+    Parameters
+    ----------
+    dtype
+        A PySpark `DataType`.
+
+    fake
+        A `Faker` object to use when generating fake dates, strings, or timestamps.
+
+    nullable
+        Whether the values can be null. In the case when `dtype` is `StructType`,
+        the nullability of the struct's fields are passed down with this parameter.
+        If this is manually specified, it only applies at the top-level.
+
+        NOTE: This only specifies that the field is nullable. The probability of a
+        value being null needs to be specified in the `constraint`.
+
+    constraint : optional
+        A `Constraint` to specify what kind of value should be generated.
+    """
     if constraint is not None and not _check_dtype_and_constraint_match(
         dtype=dtype, constraint=constraint
     ):

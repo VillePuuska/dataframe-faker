@@ -1,5 +1,7 @@
 # DataFrame Faker
 
+![CI badge](https://github.com/VillePuuska/dataframe-faker/actions/workflows/tests.yaml/badge.svg)
+
 ## What
 
 A simple helper for generating PySpark DataFrames filled with fake data with the help of Faker.

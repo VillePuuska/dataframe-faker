@@ -1,4 +1,4 @@
-name: Run tests, linting, and type checking
+name: Tests, ruff, and mypy
 
 on:
   pull_request:

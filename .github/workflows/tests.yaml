@@ -56,3 +56,19 @@ jobs:
 
       - name: run tests
         run: uv run --group dev --python ${{ matrix.python-version }} pytest
+
+  test-dbr-154:
+    name: tests-dbr-154
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.6.3"
+          python-version: "3.11"
+
+      - name: run tests
+        run: uv run --group dev --python 3.11 --with pyspark==3.5.0 pytest

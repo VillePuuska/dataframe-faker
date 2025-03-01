@@ -231,11 +231,19 @@ def generate_fake_value(
                 constraint = TimestampConstraint()
             constraint = cast(TimestampConstraint, constraint)
 
-            return fake.date_time_between(
+            dt = fake.date_time_between(
                 start_date=constraint.min_value,
                 end_date=constraint.max_value,
                 tzinfo=constraint.tzinfo,
             )
+            # NOTE: For some reason Faker does not respect limits when generating
+            # microseconds so the datetime can fall out of the given range.
+            # The following replace is done to fix it.
+            if dt < constraint.min_value:
+                dt = dt.replace(microsecond=constraint.min_value.microsecond)
+            elif dt > constraint.max_value:
+                dt = dt.replace(microsecond=constraint.max_value.microsecond)
+            return dt
         case _:
             raise ValueError("Unsupported dtype")
     raise NotImplementedError

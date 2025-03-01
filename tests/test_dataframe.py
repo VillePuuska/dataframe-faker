@@ -3,7 +3,7 @@ import zoneinfo
 from string import ascii_lowercase, digits
 
 from faker import Faker
-from pyspark.sql import SparkSession
+from pyspark.sql import Row, SparkSession
 from pyspark.sql.types import (
     ArrayType,
     BooleanType,
@@ -29,6 +29,7 @@ from dataframe_faker.dataframe import (
     ALPHABET,
     _check_dtype_and_constraint_match,
     convert_schema_string_to_schema,
+    generate_fake_dataframe,
     generate_fake_value,
 )
 
@@ -302,6 +303,7 @@ def test_generate_fake_value(fake: Faker) -> None:
                     hour=1,
                     minute=1,
                     second=1,
+                    microsecond=500000,
                     tzinfo=zoneinfo.ZoneInfo("UTC"),
                 ),
                 max_value=datetime.datetime(
@@ -311,6 +313,7 @@ def test_generate_fake_value(fake: Faker) -> None:
                     hour=1,
                     minute=1,
                     second=10,
+                    microsecond=500000,
                     tzinfo=zoneinfo.ZoneInfo("UTC"),
                 ),
                 tzinfo=zoneinfo.ZoneInfo("UTC"),
@@ -324,6 +327,7 @@ def test_generate_fake_value(fake: Faker) -> None:
             hour=3,
             minute=1,
             second=1,
+            microsecond=500000,
             tzinfo=zoneinfo.ZoneInfo("Europe/Helsinki"),
         )
         assert actual_timestamp <= datetime.datetime(
@@ -333,5 +337,111 @@ def test_generate_fake_value(fake: Faker) -> None:
             hour=3,
             minute=1,
             second=10,
+            microsecond=500000,
             tzinfo=zoneinfo.ZoneInfo("Europe/Helsinki"),
         )
+
+
+def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
+    schema_str = """
+    array_col: array<integer>,
+    boolean_col: boolean,
+    date_col: date,
+    float_col: float,
+    integer_col: integer,
+    string_col: string,
+    struct_col: struct<
+        nested_integer: integer,
+        nested_string: string
+    >,
+    timestamp_col: timestamp
+    """
+    rows = 100
+    actual = generate_fake_dataframe(
+        schema=schema_str,
+        spark=spark,
+        fake=fake,
+        constraints={
+            "array_col": ArrayConstraint(
+                element_constraint=IntegerConstraint(min_value=1, max_value=1),
+                min_length=2,
+                max_length=2,
+            ),
+            "boolean_col": None,
+            "date_col": DateConstraint(
+                min_value=datetime.date(year=2020, month=1, day=1),
+                max_value=datetime.date(year=2020, month=1, day=1),
+            ),
+            "float_col": FloatConstraint(min_value=1.0, max_value=1.0),
+            "integer_col": IntegerConstraint(min_value=1, max_value=1),
+            "string_col": StringConstraint(
+                string_type="any", min_length=5, max_length=5
+            ),
+            "struct_col": StructConstraint(
+                element_constraints={
+                    "nested_integer": IntegerConstraint(min_value=1, max_value=1),
+                    "nested_string": StringConstraint(null_chance=1.0),
+                }
+            ),
+            "timestamp_col": TimestampConstraint(
+                min_value=datetime.datetime(
+                    year=2020, month=1, day=1, hour=2, minute=3, second=4, microsecond=5
+                ),
+                max_value=datetime.datetime(
+                    year=2020, month=1, day=1, hour=2, minute=3, second=4, microsecond=5
+                ),
+            ),
+        },
+        rows=rows,
+    )
+
+    actual_schema = actual.schema
+    expected_schema = spark.createDataFrame([], schema=schema_str).schema
+    assert_schema_equal(
+        actual=actual_schema,
+        expected=expected_schema,
+    )
+
+    actual_collected = actual.collect()
+
+    actual_array_col = [row.array_col for row in actual_collected]
+    expected_array_col = [[1, 1] for _ in range(rows)]
+    assert actual_array_col == expected_array_col
+
+    actual_boolean_col = [row.boolean_col for row in actual_collected]
+    for val in actual_boolean_col:
+        assert isinstance(val, bool)
+
+    actual_date_col = [row.date_col for row in actual_collected]
+    expected_date_col = [datetime.date(year=2020, month=1, day=1) for _ in range(rows)]
+    assert actual_date_col == expected_date_col
+
+    actual_float_col = [row.float_col for row in actual_collected]
+    expected_float_col = [1.0 for _ in range(rows)]
+    assert actual_float_col == expected_float_col
+
+    actual_integer_col = [row.integer_col for row in actual_collected]
+    expected_integer_col = [1 for _ in range(rows)]
+    assert actual_integer_col == expected_integer_col
+
+    actual_string_col = [row.string_col for row in actual_collected]
+    for val in actual_string_col:
+        assert isinstance(val, str)
+        assert len(val) == 5
+        for c in val:
+            assert c in ALPHABET
+
+    actual_struct_col = [row.struct_col for row in actual_collected]
+    expected_struct_col = [
+        Row(nested_integer=1, nested_string=None) for _ in range(rows)
+    ]
+    assert actual_struct_col == expected_struct_col
+
+    actual_timestamp_col = [row.timestamp_col for row in actual_collected]
+    expected_timestamp_col = [
+        datetime.datetime(
+            year=2020, month=1, day=1, hour=2, minute=3, second=4, microsecond=5
+        )
+        for _ in range(rows)
+    ]
+    assert actual_timestamp_col == expected_timestamp_col

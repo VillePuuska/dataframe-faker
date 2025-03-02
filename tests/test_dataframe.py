@@ -18,6 +18,7 @@ from pyspark.sql.types import (
 
 from dataframe_faker.constraints import (
     ArrayConstraint,
+    BooleanConstraint,
     DateConstraint,
     FloatConstraint,
     IntegerConstraint,
@@ -80,7 +81,7 @@ def test_check_dtype_and_constraint_match() -> None:
     ]
     constraints = [
         ArrayConstraint(),
-        None,
+        BooleanConstraint(),
         DateConstraint(),
         FloatConstraint(),
         IntegerConstraint(),
@@ -152,6 +153,24 @@ def test_generate_fake_value(fake: Faker) -> None:
             dtype=BooleanType(), nullable=False, fake=fake
         )
         assert isinstance(actual_bool, bool)
+
+        actual_bool = generate_fake_value(
+            dtype=BooleanType(),
+            nullable=False,
+            fake=fake,
+            constraint=BooleanConstraint(true_chance=1.0),
+        )
+        assert isinstance(actual_bool, bool)
+        assert actual_bool
+
+        actual_bool = generate_fake_value(
+            dtype=BooleanType(),
+            nullable=False,
+            fake=fake,
+            constraint=BooleanConstraint(true_chance=0.0),
+        )
+        assert isinstance(actual_bool, bool)
+        assert not actual_bool
 
         actual_date = generate_fake_value(
             dtype=DateType(),
@@ -367,7 +386,7 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
                 min_length=2,
                 max_length=2,
             ),
-            "boolean_col": None,
+            "boolean_col": BooleanConstraint(true_chance=1.0),
             "date_col": DateConstraint(
                 min_value=datetime.date(year=2020, month=1, day=1),
                 max_value=datetime.date(year=2020, month=1, day=1),
@@ -409,8 +428,8 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
     assert actual_array_col == expected_array_col
 
     actual_boolean_col = [row.boolean_col for row in actual_collected]
-    for val in actual_boolean_col:
-        assert isinstance(val, bool)
+    expected_boolean_col = [True for _ in range(rows)]
+    assert actual_boolean_col == expected_boolean_col
 
     actual_date_col = [row.date_col for row in actual_collected]
     expected_date_col = [datetime.date(year=2020, month=1, day=1) for _ in range(rows)]

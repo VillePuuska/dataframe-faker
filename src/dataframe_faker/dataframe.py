@@ -19,6 +19,7 @@ from pyspark.sql.types import (
 
 from .constraints import (
     ArrayConstraint,
+    BooleanConstraint,
     Constraint,
     DateConstraint,
     FloatConstraint,
@@ -134,8 +135,7 @@ def generate_fake_value(
     dtype: BooleanType,
     fake: Faker,
     nullable: bool = False,
-    # TODO: change when BooleanConstraint is implemented
-    constraint: Constraint | None = None,
+    constraint: BooleanConstraint | None = None,
 ) -> bool: ...
 
 
@@ -228,7 +228,11 @@ def generate_fake_value(
                 for _ in range(size)
             ]
         case BooleanType():
-            return random.random() > 0.5
+            if constraint is None:
+                constraint = BooleanConstraint()
+            constraint = cast(BooleanConstraint, constraint)
+
+            return random.random() >= 1 - constraint.true_chance
         case DateType():
             if constraint is None:
                 constraint = DateConstraint()
@@ -311,7 +315,7 @@ def _check_dtype_and_constraint_match(
         case ArrayType():
             return isinstance(constraint, ArrayConstraint)
         case BooleanType():
-            return constraint is None
+            return isinstance(constraint, BooleanConstraint)
         case DateType():
             return isinstance(constraint, DateConstraint)
         case FloatType():

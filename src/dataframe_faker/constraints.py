@@ -16,6 +16,11 @@ class ArrayConstraint(Constraint):
 
 
 @dataclass(kw_only=True)
+class BooleanConstraint(Constraint):
+    true_chance: float = 0.5
+
+
+@dataclass(kw_only=True)
 class DateConstraint(Constraint):
     min_value: datetime.date = datetime.date(year=2020, month=1, day=1)
     max_value: datetime.date = datetime.date(year=2024, month=12, day=31)

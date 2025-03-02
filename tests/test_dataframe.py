@@ -360,6 +360,24 @@ def test_generate_fake_value(fake: Faker) -> None:
             tzinfo=zoneinfo.ZoneInfo("Europe/Helsinki"),
         )
 
+        actual_int = generate_fake_value(
+            dtype=IntegerType(),
+            fake=fake,
+            nullable=False,
+            constraint=IntegerConstraint(allowed_values=[3]),
+        )
+        expected_int = 3
+        assert actual_int == expected_int
+
+        actual_struct = generate_fake_value(
+            dtype=StructType(),
+            fake=fake,
+            nullable=False,
+            constraint=StructConstraint(allowed_values=[{"a": 1, "b": False}]),
+        )
+        expected_struct = {"a": 1, "b": False}
+        assert actual_struct == expected_struct
+
 
 def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
     schema_str = """

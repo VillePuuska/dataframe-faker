@@ -209,6 +209,13 @@ def generate_fake_value(
         if random.random() < constraint.null_chance:
             return None
 
+    if constraint is not None and constraint.allowed_values is not None:
+        if len(constraint.allowed_values) == 0:
+            raise ValueError(
+                "Empty list of allowed values specified; can't return anything."
+            )
+        return random.choice(constraint.allowed_values)
+
     match dtype:
         case ArrayType():
             if constraint is None:

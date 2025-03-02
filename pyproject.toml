@@ -1,6 +1,6 @@
 [project]
 name = "dataframe-faker"
-version = "0.1.0"
+version = "0.1.1"
 description = "A simple helper for generating DataFrames filled with fake data with the help of Faker."
 readme = "README.md"
 authors = [
@@ -11,6 +11,13 @@ dependencies = [
     "faker>=36.1.1",
     "pyspark>=3.5.0",
 ]
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.urls]
+Repository = "https://github.com/VillePuuska/dataframe-faker"
 
 [build-system]
 requires = ["hatchling"]

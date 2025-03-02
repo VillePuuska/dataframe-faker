@@ -1,6 +1,8 @@
 # DataFrame Faker
 
 ![CI badge](https://github.com/VillePuuska/dataframe-faker/actions/workflows/tests.yaml/badge.svg)
+![PyPI - Version](https://img.shields.io/pypi/v/dataframe-faker)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/dataframe-faker)
 
 ## What
 

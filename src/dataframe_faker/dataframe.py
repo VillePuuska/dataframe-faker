@@ -8,6 +8,7 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import (
     ArrayType,
     BooleanType,
+    ByteType,
     DataType,
     DateType,
     FloatType,
@@ -20,6 +21,7 @@ from pyspark.sql.types import (
 from .constraints import (
     ArrayConstraint,
     BooleanConstraint,
+    ByteConstraint,
     Constraint,
     DateConstraint,
     FloatConstraint,
@@ -91,7 +93,7 @@ def generate_fake_value(
     fake: Faker,
     nullable: bool = False,
     constraint: StructConstraint | None = None,
-) -> dict[str, Any]: ...
+) -> dict[str, Any] | None: ...
 
 
 @overload
@@ -100,7 +102,7 @@ def generate_fake_value(
     fake: Faker,
     nullable: bool = False,
     constraint: StringConstraint | None = None,
-) -> str: ...
+) -> str | None: ...
 
 
 @overload
@@ -109,7 +111,7 @@ def generate_fake_value(
     fake: Faker,
     nullable: bool = False,
     constraint: IntegerConstraint | None = None,
-) -> int: ...
+) -> int | None: ...
 
 
 @overload
@@ -118,7 +120,7 @@ def generate_fake_value(
     fake: Faker,
     nullable: bool = False,
     constraint: FloatConstraint | None = None,
-) -> float: ...
+) -> float | None: ...
 
 
 @overload
@@ -127,7 +129,7 @@ def generate_fake_value(
     fake: Faker,
     nullable: bool = False,
     constraint: ArrayConstraint | None = None,
-) -> list[Any]: ...
+) -> list[Any] | None: ...
 
 
 @overload
@@ -136,7 +138,16 @@ def generate_fake_value(
     fake: Faker,
     nullable: bool = False,
     constraint: BooleanConstraint | None = None,
-) -> bool: ...
+) -> bool | None: ...
+
+
+@overload
+def generate_fake_value(
+    dtype: ByteType,
+    fake: Faker,
+    nullable: bool = False,
+    constraint: ByteConstraint | None = None,
+) -> int | None: ...
 
 
 @overload
@@ -145,7 +156,7 @@ def generate_fake_value(
     fake: Faker,
     nullable: bool = False,
     constraint: DateConstraint | None = None,
-) -> datetime.date: ...
+) -> datetime.date | None: ...
 
 
 @overload
@@ -154,7 +165,7 @@ def generate_fake_value(
     fake: Faker,
     nullable: bool = False,
     constraint: TimestampConstraint | None = None,
-) -> datetime.datetime: ...
+) -> datetime.datetime | None: ...
 
 
 @overload
@@ -195,7 +206,7 @@ def generate_fake_value(
     constraint : optional
         A `Constraint` to specify what kind of value should be generated.
     """
-    if constraint is not None and not _check_dtype_and_constraint_match(
+    if constraint is not None and not _validate_dtype_and_constraint(
         dtype=dtype, constraint=constraint
     ):
         error_msg = (
@@ -240,6 +251,14 @@ def generate_fake_value(
             constraint = cast(BooleanConstraint, constraint)
 
             return random.random() >= 1 - constraint.true_chance
+        case ByteType():
+            if constraint is None:
+                constraint = ByteConstraint()
+            constraint = cast(ByteConstraint, constraint)
+
+            return random.randrange(
+                start=constraint.min_value, stop=constraint.max_value + 1
+            )
         case DateType():
             if constraint is None:
                 constraint = DateConstraint()
@@ -309,7 +328,7 @@ def generate_fake_value(
     raise NotImplementedError
 
 
-def _check_dtype_and_constraint_match(
+def _validate_dtype_and_constraint(
     dtype: DataType, constraint: Constraint | None
 ) -> bool:
     """
@@ -323,6 +342,12 @@ def _check_dtype_and_constraint_match(
             return isinstance(constraint, ArrayConstraint)
         case BooleanType():
             return isinstance(constraint, BooleanConstraint)
+        case ByteType():
+            return (
+                isinstance(constraint, ByteConstraint)
+                and constraint.min_value >= -128
+                and constraint.max_value <= 127
+            )
         case DateType():
             return isinstance(constraint, DateConstraint)
         case FloatType():

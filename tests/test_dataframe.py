@@ -28,8 +28,8 @@ from dataframe_faker.constraints import (
 )
 from dataframe_faker.dataframe import (
     ALPHABET,
-    _check_dtype_and_constraint_match,
     _convert_schema_string_to_schema,
+    _validate_dtype_and_constraint,
     generate_fake_dataframe,
     generate_fake_value,
 )
@@ -90,46 +90,46 @@ def test_check_dtype_and_constraint_match() -> None:
         TimestampConstraint(),
     ]
     for dtype, constraint in zip(dtypes, constraints):
-        assert _check_dtype_and_constraint_match(dtype=dtype, constraint=constraint)
+        assert _validate_dtype_and_constraint(dtype=dtype, constraint=constraint)
 
-    assert not _check_dtype_and_constraint_match(
+    assert not _validate_dtype_and_constraint(
         dtype=ArrayType(elementType=IntegerType()),
         constraint=IntegerConstraint(),
     )
-    assert not _check_dtype_and_constraint_match(
+    assert not _validate_dtype_and_constraint(
         dtype=ArrayType(elementType=IntegerType()),
         constraint=StructConstraint(),
     )
-    assert not _check_dtype_and_constraint_match(
+    assert not _validate_dtype_and_constraint(
         dtype=StructType(),
         constraint=IntegerConstraint(),
     )
-    assert not _check_dtype_and_constraint_match(
+    assert not _validate_dtype_and_constraint(
         dtype=StructType(),
         constraint=ArrayConstraint(),
     )
-    assert not _check_dtype_and_constraint_match(
+    assert not _validate_dtype_and_constraint(
         dtype=IntegerType(),
         constraint=StringConstraint(),
     )
-    assert not _check_dtype_and_constraint_match(
+    assert not _validate_dtype_and_constraint(
         dtype=IntegerType(),
         constraint=StructConstraint(),
     )
 
     # only checks top-level
-    assert _check_dtype_and_constraint_match(
+    assert _validate_dtype_and_constraint(
         dtype=ArrayType(elementType=StringType()),
         constraint=ArrayConstraint(element_constraint=IntegerConstraint()),
     )
 
     # works with fields inside StructType as well
-    assert _check_dtype_and_constraint_match(
+    assert _validate_dtype_and_constraint(
         dtype=StructType(fields=[StructField(name="asd", dataType=StringType())]),
         constraint=StructConstraint(),
     )
 
-    assert not _check_dtype_and_constraint_match(dtype=StringType(), constraint=None)
+    assert not _validate_dtype_and_constraint(dtype=StringType(), constraint=None)
 
 
 def test_generate_fake_value(fake: Faker) -> None:

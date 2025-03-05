@@ -1,7 +1,6 @@
-import datetime
 import random
 import string
-from typing import Any, cast, overload
+from typing import Any, cast
 
 from faker import Faker
 from pyspark.sql import DataFrame, SparkSession
@@ -85,96 +84,6 @@ def generate_fake_dataframe(
 
 def _convert_schema_string_to_schema(schema: str, spark: SparkSession) -> StructType:
     return spark.createDataFrame([], schema=schema).schema
-
-
-@overload
-def generate_fake_value(
-    dtype: StructType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: StructConstraint | None = None,
-) -> dict[str, Any] | None: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: StringType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: StringConstraint | None = None,
-) -> str | None: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: IntegerType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: IntegerConstraint | None = None,
-) -> int | None: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: FloatType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: FloatConstraint | None = None,
-) -> float | None: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: ArrayType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: ArrayConstraint | None = None,
-) -> list[Any] | None: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: BooleanType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: BooleanConstraint | None = None,
-) -> bool | None: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: ByteType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: ByteConstraint | None = None,
-) -> int | None: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: DateType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: DateConstraint | None = None,
-) -> datetime.date | None: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: TimestampType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: TimestampConstraint | None = None,
-) -> datetime.datetime | None: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: DataType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: Constraint | None = None,
-) -> Any: ...
 
 
 def generate_fake_value(

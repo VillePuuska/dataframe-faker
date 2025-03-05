@@ -115,15 +115,8 @@ def generate_fake_value(
     constraint : optional
         A `Constraint` to specify what kind of value should be generated.
     """
-    if constraint is not None and not _validate_dtype_and_constraint(
-        dtype=dtype, constraint=constraint
-    ):
-        error_msg = (
-            "Constraint type does not match dtype: "
-            + f"constraint {constraint.__class__}, "
-            + f"dtype: {dtype.__class__}"
-        )
-        raise ValueError(error_msg)
+    if constraint is not None:
+        _validate_dtype_and_constraint(dtype=dtype, constraint=constraint)
 
     if nullable and constraint is not None and constraint.null_chance > 0.0:
         if random.random() < constraint.null_chance:
@@ -239,38 +232,55 @@ def generate_fake_value(
 
 def _validate_dtype_and_constraint(
     dtype: DataType, constraint: Constraint | None
-) -> bool:
+) -> None:
     """
-    Helper to check that a DataType and Constraint match.
+    Helper to check that a DataType and Constraint match and validate a Constraint.
 
-    NOTE: Only checks at top-level, i.e. does not check that element Constraints of
-    Arrays and Structs match the element DataTypes.
+    Raises a ValueError if validation fails.
+
+    NOTE: Only checks at top-level, i.e. does not validate the Constraints of elements of
+    complex types.
     """
+    type_mismatch_error_msg = (
+        "Constraint type does not match dtype: "
+        + f"constraint {constraint.__class__}, "
+        + f"dtype: {dtype.__class__}"
+    )
+
     match dtype:
         case ArrayType():
-            return isinstance(constraint, ArrayConstraint)
+            if not isinstance(constraint, ArrayConstraint):
+                raise ValueError(type_mismatch_error_msg)
         case BooleanType():
-            return isinstance(constraint, BooleanConstraint)
+            if not isinstance(constraint, BooleanConstraint):
+                raise ValueError(type_mismatch_error_msg)
         case ByteType():
-            return (
-                isinstance(constraint, ByteConstraint)
-                and constraint.min_value >= -128
-                and constraint.max_value <= 127
-            )
+            if not isinstance(constraint, ByteConstraint):
+                raise ValueError(type_mismatch_error_msg)
+            if not constraint.min_value >= -128 and constraint.max_value <= 127:
+                raise ValueError(
+                    "ByteConstraint min_value has to be >= -128 and max_value has to be <= 127."
+                )
         case DateType():
-            return isinstance(constraint, DateConstraint)
+            if not isinstance(constraint, DateConstraint):
+                raise ValueError(type_mismatch_error_msg)
         case FloatType():
-            return isinstance(constraint, FloatConstraint)
+            if not isinstance(constraint, FloatConstraint):
+                raise ValueError(type_mismatch_error_msg)
         case IntegerType():
-            return isinstance(constraint, IntegerConstraint)
+            if not isinstance(constraint, IntegerConstraint):
+                raise ValueError(type_mismatch_error_msg)
         case StringType():
-            return isinstance(constraint, StringConstraint)
+            if not isinstance(constraint, StringConstraint):
+                raise ValueError(type_mismatch_error_msg)
         case StructType():
-            return isinstance(constraint, StructConstraint)
+            if not isinstance(constraint, StructConstraint):
+                raise ValueError(type_mismatch_error_msg)
         case TimestampType():
-            return isinstance(constraint, TimestampConstraint)
+            if not isinstance(constraint, TimestampConstraint):
+                raise ValueError(type_mismatch_error_msg)
         case _:
-            raise ValueError("Unsupported dtype")
+            raise ValueError(f"Unsupported dtype: {dtype.__class__}")
 
 
 def _generate_fake_string(fake: Faker, constraint: StringConstraint) -> str:

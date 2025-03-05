@@ -2,6 +2,7 @@ import datetime
 import zoneinfo
 from string import ascii_lowercase, digits
 
+import pytest
 from faker import Faker
 from pyspark.sql import Row, SparkSession
 from pyspark.sql.types import (
@@ -90,46 +91,53 @@ def test_check_dtype_and_constraint_match() -> None:
         TimestampConstraint(),
     ]
     for dtype, constraint in zip(dtypes, constraints):
-        assert _validate_dtype_and_constraint(dtype=dtype, constraint=constraint)
+        _validate_dtype_and_constraint(dtype=dtype, constraint=constraint)
 
-    assert not _validate_dtype_and_constraint(
-        dtype=ArrayType(elementType=IntegerType()),
-        constraint=IntegerConstraint(),
-    )
-    assert not _validate_dtype_and_constraint(
-        dtype=ArrayType(elementType=IntegerType()),
-        constraint=StructConstraint(),
-    )
-    assert not _validate_dtype_and_constraint(
-        dtype=StructType(),
-        constraint=IntegerConstraint(),
-    )
-    assert not _validate_dtype_and_constraint(
-        dtype=StructType(),
-        constraint=ArrayConstraint(),
-    )
-    assert not _validate_dtype_and_constraint(
-        dtype=IntegerType(),
-        constraint=StringConstraint(),
-    )
-    assert not _validate_dtype_and_constraint(
-        dtype=IntegerType(),
-        constraint=StructConstraint(),
-    )
+    with pytest.raises(ValueError):
+        _validate_dtype_and_constraint(
+            dtype=ArrayType(elementType=IntegerType()),
+            constraint=IntegerConstraint(),
+        )
+    with pytest.raises(ValueError):
+        _validate_dtype_and_constraint(
+            dtype=ArrayType(elementType=IntegerType()),
+            constraint=StructConstraint(),
+        )
+    with pytest.raises(ValueError):
+        _validate_dtype_and_constraint(
+            dtype=StructType(),
+            constraint=IntegerConstraint(),
+        )
+    with pytest.raises(ValueError):
+        _validate_dtype_and_constraint(
+            dtype=StructType(),
+            constraint=ArrayConstraint(),
+        )
+    with pytest.raises(ValueError):
+        _validate_dtype_and_constraint(
+            dtype=IntegerType(),
+            constraint=StringConstraint(),
+        )
+    with pytest.raises(ValueError):
+        _validate_dtype_and_constraint(
+            dtype=IntegerType(),
+            constraint=StructConstraint(),
+        )
 
     # only checks top-level
-    assert _validate_dtype_and_constraint(
+    _validate_dtype_and_constraint(
         dtype=ArrayType(elementType=StringType()),
         constraint=ArrayConstraint(element_constraint=IntegerConstraint()),
     )
 
     # works with fields inside StructType as well
-    assert _validate_dtype_and_constraint(
+    _validate_dtype_and_constraint(
         dtype=StructType(fields=[StructField(name="asd", dataType=StringType())]),
         constraint=StructConstraint(),
     )
 
-    assert not _validate_dtype_and_constraint(dtype=StringType(), constraint=None)
+    with pytest.raises(ValueError):
+        _validate_dtype_and_constraint(dtype=StringType(), constraint=None)
 
 
 def test_generate_fake_value(fake: Faker) -> None:

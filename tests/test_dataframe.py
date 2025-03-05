@@ -8,9 +8,12 @@ from pyspark.sql import Row, SparkSession
 from pyspark.sql.types import (
     ArrayType,
     BooleanType,
+    ByteType,
     DateType,
     FloatType,
     IntegerType,
+    LongType,
+    ShortType,
     StringType,
     StructField,
     StructType,
@@ -20,9 +23,12 @@ from pyspark.sql.types import (
 from dataframe_faker.constraints import (
     ArrayConstraint,
     BooleanConstraint,
+    ByteConstraint,
     DateConstraint,
     FloatConstraint,
     IntegerConstraint,
+    LongConstraint,
+    ShortConstraint,
     StringConstraint,
     StructConstraint,
     TimestampConstraint,
@@ -73,9 +79,12 @@ def test_check_dtype_and_constraint_match() -> None:
     dtypes = [
         ArrayType(elementType=IntegerType()),
         BooleanType(),
+        ByteType(),
         DateType(),
         FloatType(),
         IntegerType(),
+        LongType(),
+        ShortType(),
         StringType(),
         StructType(),
         TimestampType(),
@@ -83,9 +92,12 @@ def test_check_dtype_and_constraint_match() -> None:
     constraints = [
         ArrayConstraint(),
         BooleanConstraint(),
+        ByteConstraint(),
         DateConstraint(),
         FloatConstraint(),
         IntegerConstraint(),
+        LongConstraint(),
+        ShortConstraint(),
         StringConstraint(),
         StructConstraint(),
         TimestampConstraint(),
@@ -122,6 +134,26 @@ def test_check_dtype_and_constraint_match() -> None:
         _validate_dtype_and_constraint(
             dtype=IntegerType(),
             constraint=StructConstraint(),
+        )
+    with pytest.raises(ValueError):
+        _validate_dtype_and_constraint(
+            dtype=ByteType(),
+            constraint=ByteConstraint(min_value=-200),
+        )
+    with pytest.raises(ValueError):
+        _validate_dtype_and_constraint(
+            dtype=ShortType(),
+            constraint=ShortConstraint(max_value=9999999),
+        )
+    with pytest.raises(ValueError):
+        _validate_dtype_and_constraint(
+            dtype=IntegerType(),
+            constraint=IntegerConstraint(max_value=9223372036854775),
+        )
+    with pytest.raises(ValueError):
+        _validate_dtype_and_constraint(
+            dtype=LongType(),
+            constraint=LongConstraint(min_value=-9223372036854775809),
         )
 
     # only checks top-level
@@ -180,6 +212,15 @@ def test_generate_fake_value(fake: Faker) -> None:
         assert isinstance(actual_bool, bool)
         assert not actual_bool
 
+        actual_byte = generate_fake_value(
+            dtype=ByteType(),
+            fake=fake,
+            nullable=False,
+            constraint=ByteConstraint(min_value=1, max_value=5),
+        )
+        assert isinstance(actual_byte, int)
+        assert actual_byte in range(1, 6)
+
         actual_date = generate_fake_value(
             dtype=DateType(),
             fake=fake,
@@ -222,6 +263,24 @@ def test_generate_fake_value(fake: Faker) -> None:
         )
         assert isinstance(actual_int, int)
         assert actual_int in range(1, 6)
+
+        actual_long = generate_fake_value(
+            dtype=LongType(),
+            fake=fake,
+            nullable=False,
+            constraint=LongConstraint(min_value=30000000000, max_value=30000000005),
+        )
+        assert isinstance(actual_long, int)
+        assert actual_long in range(30000000000, 30000000006)
+
+        actual_short = generate_fake_value(
+            dtype=ShortType(),
+            fake=fake,
+            nullable=False,
+            constraint=ShortConstraint(min_value=1, max_value=5),
+        )
+        assert isinstance(actual_short, int)
+        assert actual_short in range(1, 6)
 
         actual_string = generate_fake_value(
             dtype=StringType(),
@@ -391,9 +450,12 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
     schema_str = """
     array_col: array<integer>,
     boolean_col: boolean,
+    byte_col: byte,
     date_col: date,
     float_col: float,
     integer_col: integer,
+    long_col: long,
+    short_col: short,
     string_col: string,
     struct_col: struct<
         nested_integer: integer,
@@ -413,12 +475,15 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
                 max_length=2,
             ),
             "boolean_col": BooleanConstraint(true_chance=1.0),
+            "byte_col": ByteConstraint(min_value=1, max_value=1),
             "date_col": DateConstraint(
                 min_value=datetime.date(year=2020, month=1, day=1),
                 max_value=datetime.date(year=2020, month=1, day=1),
             ),
             "float_col": FloatConstraint(min_value=1.0, max_value=1.0),
             "integer_col": IntegerConstraint(min_value=1, max_value=1),
+            "long_col": LongConstraint(min_value=30000000005, max_value=30000000005),
+            "short_col": ShortConstraint(min_value=1, max_value=1),
             "string_col": StringConstraint(
                 string_type="any", min_length=5, max_length=5
             ),
@@ -457,6 +522,10 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
     expected_boolean_col = [True for _ in range(rows)]
     assert actual_boolean_col == expected_boolean_col
 
+    actual_byte_col = [row.byte_col for row in actual_collected]
+    expected_byte_col = [1 for _ in range(rows)]
+    assert actual_byte_col == expected_byte_col
+
     actual_date_col = [row.date_col for row in actual_collected]
     expected_date_col = [datetime.date(year=2020, month=1, day=1) for _ in range(rows)]
     assert actual_date_col == expected_date_col
@@ -468,6 +537,14 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
     actual_integer_col = [row.integer_col for row in actual_collected]
     expected_integer_col = [1 for _ in range(rows)]
     assert actual_integer_col == expected_integer_col
+
+    actual_long_col = [row.long_col for row in actual_collected]
+    expected_long_col = [30000000005 for _ in range(rows)]
+    assert actual_long_col == expected_long_col
+
+    actual_short_col = [row.short_col for row in actual_collected]
+    expected_short_col = [1 for _ in range(rows)]
+    assert actual_short_col == expected_short_col
 
     actual_string_col = [row.string_col for row in actual_collected]
     for val in actual_string_col:

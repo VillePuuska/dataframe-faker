@@ -21,7 +21,11 @@ class ByteConstraint(Constraint):
     allowed_values: list[int] | None = None
 
 
-# short
+@dataclass(kw_only=True)
+class ShortConstraint(Constraint):
+    min_value: int = 0
+    max_value: int = 100
+    allowed_values: list[int] | None = None
 
 
 @dataclass(kw_only=True)
@@ -31,7 +35,11 @@ class IntegerConstraint(Constraint):
     allowed_values: list[int] | None = None
 
 
-# long
+@dataclass(kw_only=True)
+class LongConstraint(Constraint):
+    min_value: int = 0
+    max_value: int = 100
+    allowed_values: list[int] | None = None
 
 
 @dataclass(kw_only=True)

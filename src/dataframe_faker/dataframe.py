@@ -12,6 +12,8 @@ from pyspark.sql.types import (
     DateType,
     FloatType,
     IntegerType,
+    LongType,
+    ShortType,
     StringType,
     StructType,
     TimestampType,
@@ -25,6 +27,8 @@ from .constraints import (
     DateConstraint,
     FloatConstraint,
     IntegerConstraint,
+    LongConstraint,
+    ShortConstraint,
     StringConstraint,
     StructConstraint,
     TimestampConstraint,
@@ -183,6 +187,22 @@ def generate_fake_value(
             return random.randrange(
                 start=constraint.min_value, stop=constraint.max_value + 1
             )
+        case LongType():
+            if constraint is None:
+                constraint = LongConstraint()
+            constraint = cast(LongConstraint, constraint)
+
+            return random.randrange(
+                start=constraint.min_value, stop=constraint.max_value + 1
+            )
+        case ShortType():
+            if constraint is None:
+                constraint = ShortConstraint()
+            constraint = cast(ShortConstraint, constraint)
+
+            return random.randrange(
+                start=constraint.min_value, stop=constraint.max_value + 1
+            )
         case StringType():
             if constraint is None:
                 constraint = StringConstraint()
@@ -270,6 +290,32 @@ def _validate_dtype_and_constraint(
         case IntegerType():
             if not isinstance(constraint, IntegerConstraint):
                 raise ValueError(type_mismatch_error_msg)
+            if not (
+                constraint.min_value >= -2147483648
+                and constraint.max_value <= 2147483647
+            ):
+                raise ValueError(
+                    "IntegerConstraint min_value has to be >= -2147483648 "
+                    "and max_value has to be <= 2147483647."
+                )
+        case LongType():
+            if not isinstance(constraint, LongConstraint):
+                raise ValueError(type_mismatch_error_msg)
+            if not (
+                constraint.min_value >= -9223372036854775808
+                and constraint.max_value <= 9223372036854775807
+            ):
+                raise ValueError(
+                    "LongConstraint min_value has to be >= -9223372036854775808 "
+                    "and max_value has to be <= 9223372036854775807."
+                )
+        case ShortType():
+            if not isinstance(constraint, ShortConstraint):
+                raise ValueError(type_mismatch_error_msg)
+            if not (constraint.min_value >= -32768 and constraint.max_value <= 32767):
+                raise ValueError(
+                    "ShortConstraint min_value has to be >= -32768 and max_value has to be <= 32767."
+                )
         case StringType():
             if not isinstance(constraint, StringConstraint):
                 raise ValueError(type_mismatch_error_msg)

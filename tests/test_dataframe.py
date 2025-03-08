@@ -507,7 +507,8 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
         nested_integer: integer,
         nested_string: string
     >,
-    timestamp_col: timestamp
+    timestamp_col_1: timestamp,
+    timestamp_col_2: timestamp
     """
     rows = 100
     actual = generate_fake_dataframe(
@@ -547,12 +548,34 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
                     "nested_string": StringConstraint(null_chance=1.0),
                 }
             ),
-            "timestamp_col": TimestampConstraint(
+            "timestamp_col_1": TimestampConstraint(
                 min_value=datetime.datetime(
                     year=2020, month=1, day=1, hour=2, minute=3, second=4, microsecond=5
                 ),
                 max_value=datetime.datetime(
                     year=2020, month=1, day=1, hour=2, minute=3, second=4, microsecond=5
+                ),
+            ),
+            "timestamp_col_2": TimestampConstraint(
+                min_value=datetime.datetime(
+                    year=2020,
+                    month=1,
+                    day=1,
+                    hour=2,
+                    minute=3,
+                    second=4,
+                    microsecond=5,
+                    tzinfo=zoneinfo.ZoneInfo("Europe/Helsinki"),
+                ),
+                max_value=datetime.datetime(
+                    year=2020,
+                    month=1,
+                    day=1,
+                    hour=2,
+                    minute=3,
+                    second=4,
+                    microsecond=5,
+                    tzinfo=zoneinfo.ZoneInfo("Europe/Helsinki"),
                 ),
             ),
         },
@@ -629,11 +652,30 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
     ]
     assert actual_struct_col == expected_struct_col
 
-    actual_timestamp_col = [row.timestamp_col for row in actual_collected]
-    expected_timestamp_col = [
+    actual_timestamp_col_1 = [row.timestamp_col_1 for row in actual_collected]
+    expected_timestamp_col_1 = [
         datetime.datetime(
             year=2020, month=1, day=1, hour=2, minute=3, second=4, microsecond=5
         )
         for _ in range(rows)
     ]
-    assert actual_timestamp_col == expected_timestamp_col
+    assert actual_timestamp_col_1 == expected_timestamp_col_1
+
+    actual_timestamp_col_2 = [
+        row.timestamp_col_2.replace(tzinfo=zoneinfo.ZoneInfo("UTC"))
+        for row in actual_collected
+    ]
+    expected_timestamp_col_2 = [
+        datetime.datetime(
+            year=2020,
+            month=1,
+            day=1,
+            hour=2,
+            minute=3,
+            second=4,
+            microsecond=5,
+            tzinfo=zoneinfo.ZoneInfo("Europe/Helsinki"),
+        )
+        for _ in range(rows)
+    ]
+    assert actual_timestamp_col_2 == expected_timestamp_col_2

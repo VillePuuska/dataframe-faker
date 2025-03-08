@@ -123,8 +123,12 @@ class DateConstraint(Constraint):
 
 @dataclass(kw_only=True)
 class TimestampConstraint(Constraint):
-    min_value: datetime.datetime = datetime.datetime(year=2020, month=1, day=1)
-    max_value: datetime.datetime = datetime.datetime(year=2024, month=12, day=31)
+    min_value: datetime.datetime = datetime.datetime(
+        year=2020, month=1, day=1, tzinfo=datetime.timezone.utc
+    )
+    max_value: datetime.datetime = datetime.datetime(
+        year=2024, month=12, day=31, tzinfo=datetime.timezone.utc
+    )
     tzinfo: datetime.tzinfo | None = None
     allowed_values: list[datetime.datetime] | None = None
 

@@ -1,3 +1,4 @@
+import datetime
 import random
 import string
 from decimal import Decimal
@@ -238,9 +239,29 @@ def generate_fake_value(
                 constraint = TimestampConstraint()
             constraint = cast(TimestampConstraint, constraint)
 
-            tzinfo = constraint.tzinfo
-            if tzinfo is None:
-                tzinfo = constraint.min_value.tzinfo
+            # tzinfo for generated value is picked in the order
+            # constraint.tzinfo
+            # > constraint.min_value.tzinfo
+            # > constraint.max_value.tzinfo
+            # > utc
+            tzinfo = [
+                tz
+                for tz in [
+                    constraint.tzinfo,
+                    constraint.min_value.tzinfo,
+                    constraint.max_value.tzinfo,
+                    datetime.timezone.utc,
+                ]
+                if tz is not None
+            ][0]
+            if constraint.min_value.tzinfo is None:
+                constraint.min_value = constraint.min_value.replace(
+                    tzinfo=datetime.timezone.utc
+                )
+            if constraint.max_value.tzinfo is None:
+                constraint.max_value = constraint.max_value.replace(
+                    tzinfo=datetime.timezone.utc
+                )
             dt = fake.date_time_between(
                 start_date=constraint.min_value,
                 end_date=constraint.max_value,

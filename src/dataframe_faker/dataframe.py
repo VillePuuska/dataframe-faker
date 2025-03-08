@@ -1,5 +1,6 @@
 import random
 import string
+from decimal import Decimal
 from typing import Any, cast
 
 from faker import Faker
@@ -10,6 +11,7 @@ from pyspark.sql.types import (
     ByteType,
     DataType,
     DateType,
+    DecimalType,
     DoubleType,
     FloatType,
     IntegerType,
@@ -26,6 +28,7 @@ from .constraints import (
     ByteConstraint,
     Constraint,
     DateConstraint,
+    DecimalConstraint,
     DoubleConstraint,
     FloatConstraint,
     IntegerConstraint,
@@ -178,6 +181,16 @@ def generate_fake_value(
             return fake.date_between_dates(
                 date_start=constraint.min_value, date_end=constraint.max_value
             )
+        case DecimalType():
+            if constraint is None:
+                constraint = DecimalConstraint()
+            constraint = cast(DecimalConstraint, constraint)
+
+            scaling = 10**dtype.scale
+            min_int = int(constraint.min_value * scaling)
+            max_int = int(constraint.max_value * scaling)
+            random_int = random.randrange(start=min_int, stop=max_int + 1)
+            return Decimal(random_int) / scaling
         case DoubleType() | FloatType():
             if constraint is None:
                 constraint = FloatConstraint()
@@ -264,6 +277,9 @@ def _validate_dtype_and_constraint(
                 )
         case DateType():
             if not isinstance(constraint, DateConstraint):
+                raise ValueError(type_mismatch_error_msg)
+        case DecimalType():
+            if not isinstance(constraint, DecimalConstraint):
                 raise ValueError(type_mismatch_error_msg)
         case DoubleType():
             if not isinstance(constraint, DoubleConstraint):

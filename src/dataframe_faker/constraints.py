@@ -1,5 +1,6 @@
 import datetime
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any, Literal
 
 
@@ -56,7 +57,11 @@ class DoubleConstraint(Constraint):
     allowed_values: list[float] | None = None
 
 
-# decimal
+@dataclass(kw_only=True)
+class DecimalConstraint(Constraint):
+    min_value: Decimal = Decimal(0)
+    max_value: Decimal = Decimal(100)
+    allowed_values: list[Decimal] | None = None
 
 
 ##################

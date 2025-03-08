@@ -1,5 +1,6 @@
 import datetime
 import zoneinfo
+from decimal import Decimal
 from string import ascii_lowercase, digits
 
 import pytest
@@ -10,6 +11,7 @@ from pyspark.sql.types import (
     BooleanType,
     ByteType,
     DateType,
+    DecimalType,
     DoubleType,
     FloatType,
     IntegerType,
@@ -26,6 +28,7 @@ from dataframe_faker.constraints import (
     BooleanConstraint,
     ByteConstraint,
     DateConstraint,
+    DecimalConstraint,
     DoubleConstraint,
     FloatConstraint,
     IntegerConstraint,
@@ -83,6 +86,7 @@ def test_check_dtype_and_constraint_match() -> None:
         BooleanType(),
         ByteType(),
         DateType(),
+        DecimalType(),
         DoubleType(),
         FloatType(),
         IntegerType(),
@@ -97,6 +101,7 @@ def test_check_dtype_and_constraint_match() -> None:
         BooleanConstraint(),
         ByteConstraint(),
         DateConstraint(),
+        DecimalConstraint(),
         DoubleConstraint(),
         FloatConstraint(),
         IntegerConstraint(),
@@ -239,6 +244,17 @@ def test_generate_fake_value(fake: Faker) -> None:
             datetime.date(year=2024, month=3, day=2),
             datetime.date(year=2024, month=3, day=3),
         ]
+
+        actual_decimal = generate_fake_value(
+            dtype=DecimalType(scale=3),
+            fake=fake,
+            nullable=False,
+            constraint=DecimalConstraint(
+                min_value=Decimal("5.123"), max_value=Decimal("5.123")
+            ),
+        )
+        assert isinstance(actual_decimal, Decimal)
+        assert actual_decimal == Decimal("5.123")
 
         actual_double = generate_fake_value(
             dtype=DoubleType(),
@@ -465,6 +481,8 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
     boolean_col: boolean,
     byte_col: byte,
     date_col: date,
+    decimal_col_1: decimal(1,0),
+    decimal_col_2: decimal(28,10),
     double_col: double,
     float_col: float,
     integer_col: integer,
@@ -493,6 +511,12 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
             "date_col": DateConstraint(
                 min_value=datetime.date(year=2020, month=1, day=1),
                 max_value=datetime.date(year=2020, month=1, day=1),
+            ),
+            "decimal_col_1": DecimalConstraint(
+                min_value=Decimal("2.1"), max_value=Decimal("2.1")
+            ),
+            "decimal_col_2": DecimalConstraint(
+                min_value=Decimal("1111.2222"), max_value=Decimal("1111.2222")
             ),
             "double_col": DoubleConstraint(min_value=1.0, max_value=1.0),
             "float_col": FloatConstraint(min_value=1.0, max_value=1.0),
@@ -544,6 +568,14 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
     actual_date_col = [row.date_col for row in actual_collected]
     expected_date_col = [datetime.date(year=2020, month=1, day=1) for _ in range(rows)]
     assert actual_date_col == expected_date_col
+
+    actual_decimal_col_1 = [row.decimal_col_1 for row in actual_collected]
+    expected_decimal_col_1 = [Decimal("2") for _ in range(rows)]
+    assert actual_decimal_col_1 == expected_decimal_col_1
+
+    actual_decimal_col_2 = [row.decimal_col_2 for row in actual_collected]
+    expected_decimal_col_2 = [Decimal("1111.2222") for _ in range(rows)]
+    assert actual_decimal_col_2 == expected_decimal_col_2
 
     actual_double_col = [row.double_col for row in actual_collected]
     expected_double_col = [1.0 for _ in range(rows)]

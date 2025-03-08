@@ -8,6 +8,7 @@ from faker import Faker
 from pyspark.sql import Row, SparkSession
 from pyspark.sql.types import (
     ArrayType,
+    BinaryType,
     BooleanType,
     ByteType,
     DateType,
@@ -25,6 +26,7 @@ from pyspark.sql.types import (
 
 from dataframe_faker.constraints import (
     ArrayConstraint,
+    BinaryConstraint,
     BooleanConstraint,
     ByteConstraint,
     DateConstraint,
@@ -83,6 +85,7 @@ def test_convert_schema_string_to_schema(spark: SparkSession) -> None:
 def test_check_dtype_and_constraint_match() -> None:
     dtypes = [
         ArrayType(elementType=IntegerType()),
+        BinaryType(),
         BooleanType(),
         ByteType(),
         DateType(),
@@ -98,6 +101,7 @@ def test_check_dtype_and_constraint_match() -> None:
     ]
     constraints = [
         ArrayConstraint(),
+        BinaryConstraint(),
         BooleanConstraint(),
         ByteConstraint(),
         DateConstraint(),
@@ -197,6 +201,15 @@ def test_generate_fake_value(fake: Faker) -> None:
         assert len(actual_list) == 2
         assert actual_list[0] == 1
         assert actual_list[1] == 1
+
+        actual_binary = generate_fake_value(
+            dtype=BinaryType(),
+            nullable=False,
+            fake=fake,
+            constraint=BinaryConstraint(min_length=4, max_length=4),
+        )
+        assert isinstance(actual_binary, bytearray)
+        assert len(actual_binary) == 4
 
         actual_bool = generate_fake_value(
             dtype=BooleanType(), nullable=False, fake=fake
@@ -478,6 +491,7 @@ def test_generate_fake_value(fake: Faker) -> None:
 def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
     schema_str = """
     array_col: array<integer>,
+    binary_col: binary,
     boolean_col: boolean,
     byte_col: byte,
     date_col: date,
@@ -506,6 +520,7 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
                 min_length=2,
                 max_length=2,
             ),
+            "binary_col": BinaryConstraint(min_length=4, max_length=4),
             "boolean_col": BooleanConstraint(true_chance=1.0),
             "byte_col": ByteConstraint(min_value=1, max_value=1),
             "date_col": DateConstraint(
@@ -556,6 +571,10 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
     actual_array_col = [row.array_col for row in actual_collected]
     expected_array_col = [[1, 1] for _ in range(rows)]
     assert actual_array_col == expected_array_col
+
+    actual_binary_col_lens = [len(row.binary_col) for row in actual_collected]
+    expected_binary_col_lens = [4 for _ in range(rows)]
+    assert actual_binary_col_lens == expected_binary_col_lens
 
     actual_boolean_col = [row.boolean_col for row in actual_collected]
     expected_boolean_col = [True for _ in range(rows)]

@@ -1,5 +1,6 @@
 from .constraints import (
     ArrayConstraint,
+    BinaryConstraint,
     BooleanConstraint,
     ByteConstraint,
     Constraint,
@@ -18,6 +19,7 @@ from .dataframe import generate_fake_dataframe, generate_fake_value
 
 __all__ = [
     "ArrayConstraint",
+    "BinaryConstraint",
     "BooleanConstraint",
     "ByteConstraint",
     "Constraint",

@@ -86,15 +86,17 @@ class StringConstraint(Constraint):
     allowed_values: list[str] | None = None
 
 
-# varchar
-
-# char
-
 ##################
 ### Binary type
 ##################
 
-# binary
+
+@dataclass(kw_only=True)
+class BinaryConstraint(Constraint):
+    min_length: int = 4
+    max_length: int = 4
+    allowed_values: list[bytearray] | None = None
+
 
 ##################
 ### Boolean type

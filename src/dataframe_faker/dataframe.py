@@ -7,6 +7,7 @@ from faker import Faker
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import (
     ArrayType,
+    BinaryType,
     BooleanType,
     ByteType,
     DataType,
@@ -24,6 +25,7 @@ from pyspark.sql.types import (
 
 from .constraints import (
     ArrayConstraint,
+    BinaryConstraint,
     BooleanConstraint,
     ByteConstraint,
     Constraint,
@@ -156,6 +158,19 @@ def generate_fake_value(
                 )
                 for _ in range(size)
             ]
+        case BinaryType():
+            if constraint is None:
+                constraint = BinaryConstraint()
+            constraint = cast(BinaryConstraint, constraint)
+
+            str_constraint = StringConstraint(
+                null_chance=constraint.null_chance,
+                string_type="any",
+                min_length=constraint.min_length,
+                max_length=constraint.max_length,
+            )
+            fake_str = _generate_fake_string(fake=fake, constraint=str_constraint)
+            return bytearray(fake_str.encode())
         case BooleanType():
             if constraint is None:
                 constraint = BooleanConstraint()
@@ -264,6 +279,9 @@ def _validate_dtype_and_constraint(
     match dtype:
         case ArrayType():
             if not isinstance(constraint, ArrayConstraint):
+                raise ValueError(type_mismatch_error_msg)
+        case BinaryType():
+            if not isinstance(constraint, BinaryConstraint):
                 raise ValueError(type_mismatch_error_msg)
         case BooleanType():
             if not isinstance(constraint, BooleanConstraint):

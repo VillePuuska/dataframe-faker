@@ -10,6 +10,7 @@ from pyspark.sql.types import (
     ByteType,
     DataType,
     DateType,
+    DoubleType,
     FloatType,
     IntegerType,
     LongType,
@@ -25,6 +26,7 @@ from .constraints import (
     ByteConstraint,
     Constraint,
     DateConstraint,
+    DoubleConstraint,
     FloatConstraint,
     IntegerConstraint,
     LongConstraint,
@@ -157,10 +159,13 @@ def generate_fake_value(
             constraint = cast(BooleanConstraint, constraint)
 
             return random.random() >= 1 - constraint.true_chance
-        case ByteType():
+        case ByteType() | IntegerType() | LongType() | ShortType():
             if constraint is None:
                 constraint = ByteConstraint()
-            constraint = cast(ByteConstraint, constraint)
+            constraint = cast(
+                ByteConstraint | IntegerConstraint | LongConstraint | ShortConstraint,
+                constraint,
+            )
 
             return random.randrange(
                 start=constraint.min_value, stop=constraint.max_value + 1
@@ -173,36 +178,12 @@ def generate_fake_value(
             return fake.date_between_dates(
                 date_start=constraint.min_value, date_end=constraint.max_value
             )
-        case FloatType():
+        case DoubleType() | FloatType():
             if constraint is None:
                 constraint = FloatConstraint()
-            constraint = cast(FloatConstraint, constraint)
+            constraint = cast(DoubleConstraint | FloatConstraint, constraint)
 
             return random.uniform(a=constraint.min_value, b=constraint.max_value)
-        case IntegerType():
-            if constraint is None:
-                constraint = IntegerConstraint()
-            constraint = cast(IntegerConstraint, constraint)
-
-            return random.randrange(
-                start=constraint.min_value, stop=constraint.max_value + 1
-            )
-        case LongType():
-            if constraint is None:
-                constraint = LongConstraint()
-            constraint = cast(LongConstraint, constraint)
-
-            return random.randrange(
-                start=constraint.min_value, stop=constraint.max_value + 1
-            )
-        case ShortType():
-            if constraint is None:
-                constraint = ShortConstraint()
-            constraint = cast(ShortConstraint, constraint)
-
-            return random.randrange(
-                start=constraint.min_value, stop=constraint.max_value + 1
-            )
         case StringType():
             if constraint is None:
                 constraint = StringConstraint()
@@ -283,6 +264,9 @@ def _validate_dtype_and_constraint(
                 )
         case DateType():
             if not isinstance(constraint, DateConstraint):
+                raise ValueError(type_mismatch_error_msg)
+        case DoubleType():
+            if not isinstance(constraint, DoubleConstraint):
                 raise ValueError(type_mismatch_error_msg)
         case FloatType():
             if not isinstance(constraint, FloatConstraint):

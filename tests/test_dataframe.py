@@ -10,6 +10,7 @@ from pyspark.sql.types import (
     BooleanType,
     ByteType,
     DateType,
+    DoubleType,
     FloatType,
     IntegerType,
     LongType,
@@ -25,6 +26,7 @@ from dataframe_faker.constraints import (
     BooleanConstraint,
     ByteConstraint,
     DateConstraint,
+    DoubleConstraint,
     FloatConstraint,
     IntegerConstraint,
     LongConstraint,
@@ -81,6 +83,7 @@ def test_check_dtype_and_constraint_match() -> None:
         BooleanType(),
         ByteType(),
         DateType(),
+        DoubleType(),
         FloatType(),
         IntegerType(),
         LongType(),
@@ -94,6 +97,7 @@ def test_check_dtype_and_constraint_match() -> None:
         BooleanConstraint(),
         ByteConstraint(),
         DateConstraint(),
+        DoubleConstraint(),
         FloatConstraint(),
         IntegerConstraint(),
         LongConstraint(),
@@ -235,6 +239,15 @@ def test_generate_fake_value(fake: Faker) -> None:
             datetime.date(year=2024, month=3, day=2),
             datetime.date(year=2024, month=3, day=3),
         ]
+
+        actual_double = generate_fake_value(
+            dtype=DoubleType(),
+            fake=fake,
+            nullable=False,
+            constraint=DoubleConstraint(min_value=5.0, max_value=5.0),
+        )
+        assert isinstance(actual_double, float)
+        assert actual_double == 5.0
 
         actual_float = generate_fake_value(
             dtype=FloatType(),
@@ -452,6 +465,7 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
     boolean_col: boolean,
     byte_col: byte,
     date_col: date,
+    double_col: double,
     float_col: float,
     integer_col: integer,
     long_col: long,
@@ -480,6 +494,7 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
                 min_value=datetime.date(year=2020, month=1, day=1),
                 max_value=datetime.date(year=2020, month=1, day=1),
             ),
+            "double_col": DoubleConstraint(min_value=1.0, max_value=1.0),
             "float_col": FloatConstraint(min_value=1.0, max_value=1.0),
             "integer_col": IntegerConstraint(min_value=1, max_value=1),
             "long_col": LongConstraint(min_value=30000000005, max_value=30000000005),
@@ -529,6 +544,10 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
     actual_date_col = [row.date_col for row in actual_collected]
     expected_date_col = [datetime.date(year=2020, month=1, day=1) for _ in range(rows)]
     assert actual_date_col == expected_date_col
+
+    actual_double_col = [row.double_col for row in actual_collected]
+    expected_double_col = [1.0 for _ in range(rows)]
+    assert actual_double_col == expected_double_col
 
     actual_float_col = [row.float_col for row in actual_collected]
     expected_float_col = [1.0 for _ in range(rows)]

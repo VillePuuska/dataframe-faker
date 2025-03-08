@@ -49,7 +49,12 @@ class FloatConstraint(Constraint):
     allowed_values: list[float] | None = None
 
 
-# double
+@dataclass(kw_only=True)
+class DoubleConstraint(Constraint):
+    min_value: float = 0.0
+    max_value: float = 100.0
+    allowed_values: list[float] | None = None
+
 
 # decimal
 

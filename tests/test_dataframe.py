@@ -21,6 +21,7 @@ from pyspark.sql.types import (
     StringType,
     StructField,
     StructType,
+    TimestampNTZType,
     TimestampType,
 )
 
@@ -39,6 +40,7 @@ from dataframe_faker.constraints import (
     StringConstraint,
     StructConstraint,
     TimestampConstraint,
+    TimestampNTZConstraint,
 )
 from dataframe_faker.dataframe import (
     ALPHABET,
@@ -82,7 +84,7 @@ def test_convert_schema_string_to_schema(spark: SparkSession) -> None:
     assert_schema_equal(actual=actual, expected=expected)
 
 
-def test_check_dtype_and_constraint_match() -> None:
+def test__validate_dtype_and_constraint() -> None:
     dtypes = [
         ArrayType(elementType=IntegerType()),
         BinaryType(),
@@ -98,6 +100,7 @@ def test_check_dtype_and_constraint_match() -> None:
         StringType(),
         StructType(),
         TimestampType(),
+        TimestampNTZType(),
     ]
     constraints = [
         ArrayConstraint(),
@@ -114,6 +117,7 @@ def test_check_dtype_and_constraint_match() -> None:
         StringConstraint(),
         StructConstraint(),
         TimestampConstraint(),
+        TimestampNTZConstraint(),
     ]
     for dtype, constraint in zip(dtypes, constraints):
         _validate_dtype_and_constraint(dtype=dtype, constraint=constraint)
@@ -428,11 +432,11 @@ def test_generate_fake_value(fake: Faker) -> None:
                     year=2020,
                     month=1,
                     day=1,
-                    hour=1,
+                    hour=3,
                     minute=1,
                     second=1,
                     microsecond=500000,
-                    tzinfo=zoneinfo.ZoneInfo("UTC"),
+                    tzinfo=zoneinfo.ZoneInfo("Europe/Helsinki"),
                 ),
                 max_value=datetime.datetime(
                     year=2020,
@@ -444,7 +448,7 @@ def test_generate_fake_value(fake: Faker) -> None:
                     microsecond=500000,
                     tzinfo=zoneinfo.ZoneInfo("UTC"),
                 ),
-                tzinfo=zoneinfo.ZoneInfo("UTC"),
+                tzinfo=zoneinfo.ZoneInfo("Europe/Helsinki"),
             ),
         )
         assert isinstance(actual_timestamp, datetime.datetime)
@@ -452,22 +456,64 @@ def test_generate_fake_value(fake: Faker) -> None:
             year=2020,
             month=1,
             day=1,
-            hour=3,
+            hour=1,
             minute=1,
             second=1,
             microsecond=500000,
-            tzinfo=zoneinfo.ZoneInfo("Europe/Helsinki"),
+            tzinfo=zoneinfo.ZoneInfo("UTC"),
         )
         assert actual_timestamp <= datetime.datetime(
             year=2020,
             month=1,
             day=1,
-            hour=3,
+            hour=1,
             minute=1,
             second=10,
             microsecond=500000,
-            tzinfo=zoneinfo.ZoneInfo("Europe/Helsinki"),
+            tzinfo=zoneinfo.ZoneInfo("UTC"),
         )
+
+        actual_timestamp_ntz = generate_fake_value(
+            dtype=TimestampNTZType(),
+            fake=fake,
+            nullable=False,
+            constraint=TimestampNTZConstraint(
+                min_value=datetime.datetime(
+                    year=2020,
+                    month=1,
+                    day=1,
+                    hour=1,
+                    minute=1,
+                    second=1,
+                    microsecond=500000,
+                ),
+                max_value=datetime.datetime(
+                    year=2020,
+                    month=1,
+                    day=1,
+                    hour=1,
+                    minute=1,
+                    second=1,
+                    microsecond=500000,
+                ),
+            ),
+        )
+        assert isinstance(actual_timestamp_ntz, datetime.datetime)
+        assert actual_timestamp_ntz == datetime.datetime(
+            year=2020,
+            month=1,
+            day=1,
+            hour=1,
+            minute=1,
+            second=1,
+            microsecond=500000,
+        )
+
+        actual_timestamp = generate_fake_value(dtype=TimestampType(), fake=fake)
+        assert actual_timestamp.tzinfo is not None
+
+        actual_timestamp_ntz = generate_fake_value(dtype=TimestampNTZType(), fake=fake)
+        assert actual_timestamp_ntz.tzinfo is None
 
         actual_int = generate_fake_value(
             dtype=IntegerType(),
@@ -508,7 +554,8 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
         nested_string: string
     >,
     timestamp_col_1: timestamp,
-    timestamp_col_2: timestamp
+    timestamp_col_2: timestamp,
+    timestamp_ntz_col: timestamp_ntz
     """
     rows = 100
     actual = generate_fake_dataframe(
@@ -576,6 +623,14 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
                     second=4,
                     microsecond=5,
                     tzinfo=zoneinfo.ZoneInfo("Europe/Helsinki"),
+                ),
+            ),
+            "timestamp_ntz_col": TimestampNTZConstraint(
+                min_value=datetime.datetime(
+                    year=2021, month=1, day=1, hour=2, minute=3, second=4, microsecond=5
+                ),
+                max_value=datetime.datetime(
+                    year=2021, month=1, day=1, hour=2, minute=3, second=4, microsecond=5
                 ),
             ),
         },
@@ -679,3 +734,12 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
         for _ in range(rows)
     ]
     assert actual_timestamp_col_2 == expected_timestamp_col_2
+
+    actual_timestamp_ntz_col = [row.timestamp_ntz_col for row in actual_collected]
+    expected_timestamp_ntz_col = [
+        datetime.datetime(
+            year=2021, month=1, day=1, hour=2, minute=3, second=4, microsecond=5
+        )
+        for _ in range(rows)
+    ]
+    assert actual_timestamp_ntz_col == expected_timestamp_ntz_col

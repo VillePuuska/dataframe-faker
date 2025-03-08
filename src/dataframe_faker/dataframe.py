@@ -21,6 +21,7 @@ from pyspark.sql.types import (
     ShortType,
     StringType,
     StructType,
+    TimestampNTZType,
     TimestampType,
 )
 
@@ -40,6 +41,7 @@ from .constraints import (
     StringConstraint,
     StructConstraint,
     TimestampConstraint,
+    TimestampNTZConstraint,
 )
 
 ALPHABET = string.ascii_letters + string.digits + " "
@@ -234,34 +236,41 @@ def generate_fake_value(
                 )
                 faked_data[field.name] = data
             return faked_data
-        case TimestampType():
+        case TimestampType() | TimestampNTZType():
             if constraint is None:
                 constraint = TimestampConstraint()
             constraint = cast(TimestampConstraint, constraint)
 
-            # tzinfo for generated value is picked in the order
-            # constraint.tzinfo
-            # > constraint.min_value.tzinfo
-            # > constraint.max_value.tzinfo
-            # > utc
-            tzinfo = [
-                tz
-                for tz in [
-                    constraint.tzinfo,
-                    constraint.min_value.tzinfo,
-                    constraint.max_value.tzinfo,
-                    datetime.timezone.utc,
-                ]
-                if tz is not None
-            ][0]
-            if constraint.min_value.tzinfo is None:
-                constraint.min_value = constraint.min_value.replace(
-                    tzinfo=datetime.timezone.utc
-                )
-            if constraint.max_value.tzinfo is None:
-                constraint.max_value = constraint.max_value.replace(
-                    tzinfo=datetime.timezone.utc
-                )
+            if dtype == TimestampNTZType():
+                tzinfo = None
+                if constraint.min_value.tzinfo is not None:
+                    constraint.min_value = constraint.min_value.replace(tzinfo=None)
+                if constraint.max_value.tzinfo is not None:
+                    constraint.max_value = constraint.max_value.replace(tzinfo=None)
+            else:
+                # tzinfo for generated value is picked in the order
+                # constraint.tzinfo
+                # > constraint.min_value.tzinfo
+                # > constraint.max_value.tzinfo
+                # > utc
+                tzinfo = [
+                    tz
+                    for tz in [
+                        constraint.tzinfo,
+                        constraint.min_value.tzinfo,
+                        constraint.max_value.tzinfo,
+                        datetime.timezone.utc,
+                    ]
+                    if tz is not None
+                ][0]
+                if constraint.min_value.tzinfo is None:
+                    constraint.min_value = constraint.min_value.replace(
+                        tzinfo=datetime.timezone.utc
+                    )
+                if constraint.max_value.tzinfo is None:
+                    constraint.max_value = constraint.max_value.replace(
+                        tzinfo=datetime.timezone.utc
+                    )
             dt = fake.date_time_between(
                 start_date=constraint.min_value,
                 end_date=constraint.max_value,
@@ -363,6 +372,9 @@ def _validate_dtype_and_constraint(
                 raise ValueError(type_mismatch_error_msg)
         case TimestampType():
             if not isinstance(constraint, TimestampConstraint):
+                raise ValueError(type_mismatch_error_msg)
+        case TimestampNTZType():
+            if not isinstance(constraint, TimestampNTZConstraint):
                 raise ValueError(type_mismatch_error_msg)
         case _:
             raise ValueError(f"Unsupported dtype: {dtype.__class__}")

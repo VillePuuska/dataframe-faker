@@ -133,7 +133,16 @@ class TimestampConstraint(Constraint):
     allowed_values: list[datetime.datetime] | None = None
 
 
-# timestampntz
+@dataclass(kw_only=True)
+class TimestampNTZConstraint(Constraint):
+    min_value: datetime.datetime = datetime.datetime(
+        year=2020, month=1, day=1, tzinfo=None
+    )
+    max_value: datetime.datetime = datetime.datetime(
+        year=2024, month=12, day=31, tzinfo=None
+    )
+    allowed_values: list[datetime.datetime] | None = None
+
 
 ##################
 ### Interval types

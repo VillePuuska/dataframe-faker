@@ -1,32 +1,49 @@
 import datetime
 import random
 import string
-from typing import Any, cast, overload
+from decimal import Decimal
+from typing import Any, cast
 
 from faker import Faker
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import (
     ArrayType,
+    BinaryType,
     BooleanType,
+    ByteType,
     DataType,
     DateType,
+    DayTimeIntervalType,
+    DecimalType,
+    DoubleType,
     FloatType,
     IntegerType,
+    LongType,
+    ShortType,
     StringType,
     StructType,
+    TimestampNTZType,
     TimestampType,
 )
 
 from .constraints import (
     ArrayConstraint,
+    BinaryConstraint,
     BooleanConstraint,
+    ByteConstraint,
     Constraint,
     DateConstraint,
+    DayTimeIntervalConstraint,
+    DecimalConstraint,
+    DoubleConstraint,
     FloatConstraint,
     IntegerConstraint,
+    LongConstraint,
+    ShortConstraint,
     StringConstraint,
     StructConstraint,
     TimestampConstraint,
+    TimestampNTZConstraint,
 )
 
 ALPHABET = string.ascii_letters + string.digits + " "
@@ -85,87 +102,6 @@ def _convert_schema_string_to_schema(schema: str, spark: SparkSession) -> Struct
     return spark.createDataFrame([], schema=schema).schema
 
 
-@overload
-def generate_fake_value(
-    dtype: StructType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: StructConstraint | None = None,
-) -> dict[str, Any]: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: StringType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: StringConstraint | None = None,
-) -> str: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: IntegerType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: IntegerConstraint | None = None,
-) -> int: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: FloatType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: FloatConstraint | None = None,
-) -> float: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: ArrayType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: ArrayConstraint | None = None,
-) -> list[Any]: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: BooleanType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: BooleanConstraint | None = None,
-) -> bool: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: DateType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: DateConstraint | None = None,
-) -> datetime.date: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: TimestampType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: TimestampConstraint | None = None,
-) -> datetime.datetime: ...
-
-
-@overload
-def generate_fake_value(
-    dtype: DataType,
-    fake: Faker,
-    nullable: bool = False,
-    constraint: Constraint | None = None,
-) -> Any: ...
-
-
 def generate_fake_value(
     dtype: DataType,
     fake: Faker,
@@ -195,15 +131,8 @@ def generate_fake_value(
     constraint : optional
         A `Constraint` to specify what kind of value should be generated.
     """
-    if constraint is not None and not _check_dtype_and_constraint_match(
-        dtype=dtype, constraint=constraint
-    ):
-        error_msg = (
-            "Constraint type does not match dtype: "
-            + f"constraint {constraint.__class__}, "
-            + f"dtype: {dtype.__class__}"
-        )
-        raise ValueError(error_msg)
+    if constraint is not None:
+        _validate_dtype_and_constraint(dtype=dtype, constraint=constraint)
 
     if nullable and constraint is not None and constraint.null_chance > 0.0:
         if random.random() < constraint.null_chance:
@@ -234,12 +163,36 @@ def generate_fake_value(
                 )
                 for _ in range(size)
             ]
+        case BinaryType():
+            if constraint is None:
+                constraint = BinaryConstraint()
+            constraint = cast(BinaryConstraint, constraint)
+
+            str_constraint = StringConstraint(
+                null_chance=constraint.null_chance,
+                string_type="any",
+                min_length=constraint.min_length,
+                max_length=constraint.max_length,
+            )
+            fake_str = _generate_fake_string(fake=fake, constraint=str_constraint)
+            return bytearray(fake_str.encode())
         case BooleanType():
             if constraint is None:
                 constraint = BooleanConstraint()
             constraint = cast(BooleanConstraint, constraint)
 
             return random.random() >= 1 - constraint.true_chance
+        case ByteType() | IntegerType() | LongType() | ShortType():
+            if constraint is None:
+                constraint = ByteConstraint()
+            constraint = cast(
+                ByteConstraint | IntegerConstraint | LongConstraint | ShortConstraint,
+                constraint,
+            )
+
+            return random.randrange(
+                start=constraint.min_value, stop=constraint.max_value + 1
+            )
         case DateType():
             if constraint is None:
                 constraint = DateConstraint()
@@ -248,20 +201,52 @@ def generate_fake_value(
             return fake.date_between_dates(
                 date_start=constraint.min_value, date_end=constraint.max_value
             )
-        case FloatType():
+        case DayTimeIntervalType():
+            if constraint is None:
+                constraint = DayTimeIntervalConstraint()
+            constraint = cast(DayTimeIntervalConstraint, constraint)
+
+            fake_timedelta = (
+                fake.time_delta(
+                    end_datetime=constraint.max_value - constraint.min_value
+                )
+                + constraint.min_value
+            )
+            fake_timedelta -= datetime.timedelta(
+                microseconds=fake_timedelta.microseconds
+            )
+
+            match dtype.endField:
+                case DayTimeIntervalType.MINUTE:
+                    fake_timedelta -= datetime.timedelta(
+                        seconds=fake_timedelta.seconds % 60
+                    )
+                case DayTimeIntervalType.HOUR:
+                    fake_timedelta -= datetime.timedelta(
+                        seconds=fake_timedelta.seconds % (60 * 60)
+                    )
+                case DayTimeIntervalType.DAY:
+                    fake_timedelta -= datetime.timedelta(
+                        seconds=fake_timedelta.seconds % (60 * 60 * 24)
+                    )
+
+            return fake_timedelta
+        case DecimalType():
+            if constraint is None:
+                constraint = DecimalConstraint()
+            constraint = cast(DecimalConstraint, constraint)
+
+            scaling = 10**dtype.scale
+            min_int = int(constraint.min_value * scaling)
+            max_int = int(constraint.max_value * scaling)
+            random_int = random.randrange(start=min_int, stop=max_int + 1)
+            return Decimal(random_int) / scaling
+        case DoubleType() | FloatType():
             if constraint is None:
                 constraint = FloatConstraint()
-            constraint = cast(FloatConstraint, constraint)
+            constraint = cast(DoubleConstraint | FloatConstraint, constraint)
 
             return random.uniform(a=constraint.min_value, b=constraint.max_value)
-        case IntegerType():
-            if constraint is None:
-                constraint = IntegerConstraint()
-            constraint = cast(IntegerConstraint, constraint)
-
-            return random.randrange(
-                start=constraint.min_value, stop=constraint.max_value + 1
-            )
         case StringType():
             if constraint is None:
                 constraint = StringConstraint()
@@ -283,14 +268,41 @@ def generate_fake_value(
                 )
                 faked_data[field.name] = data
             return faked_data
-        case TimestampType():
+        case TimestampType() | TimestampNTZType():
             if constraint is None:
                 constraint = TimestampConstraint()
             constraint = cast(TimestampConstraint, constraint)
 
-            tzinfo = constraint.tzinfo
-            if tzinfo is None:
-                tzinfo = constraint.min_value.tzinfo
+            if dtype == TimestampNTZType():
+                tzinfo = None
+                if constraint.min_value.tzinfo is not None:
+                    constraint.min_value = constraint.min_value.replace(tzinfo=None)
+                if constraint.max_value.tzinfo is not None:
+                    constraint.max_value = constraint.max_value.replace(tzinfo=None)
+            else:
+                # tzinfo for generated value is picked in the order
+                # constraint.tzinfo
+                # > constraint.min_value.tzinfo
+                # > constraint.max_value.tzinfo
+                # > utc
+                tzinfo = [
+                    tz
+                    for tz in [
+                        constraint.tzinfo,
+                        constraint.min_value.tzinfo,
+                        constraint.max_value.tzinfo,
+                        datetime.timezone.utc,
+                    ]
+                    if tz is not None
+                ][0]
+                if constraint.min_value.tzinfo is None:
+                    constraint.min_value = constraint.min_value.replace(
+                        tzinfo=datetime.timezone.utc
+                    )
+                if constraint.max_value.tzinfo is None:
+                    constraint.max_value = constraint.max_value.replace(
+                        tzinfo=datetime.timezone.utc
+                    )
             dt = fake.date_time_between(
                 start_date=constraint.min_value,
                 end_date=constraint.max_value,
@@ -309,34 +321,98 @@ def generate_fake_value(
     raise NotImplementedError
 
 
-def _check_dtype_and_constraint_match(
+def _validate_dtype_and_constraint(
     dtype: DataType, constraint: Constraint | None
-) -> bool:
+) -> None:
     """
-    Helper to check that a DataType and Constraint match.
+    Helper to check that a DataType and Constraint match and validate a Constraint.
 
-    NOTE: Only checks at top-level, i.e. does not check that element Constraints of
-    Arrays and Structs match the element DataTypes.
+    Raises a ValueError if validation fails.
+
+    NOTE: Only checks at top-level, i.e. does not validate the Constraints of elements of
+    complex types.
     """
+    type_mismatch_error_msg = (
+        "Constraint type does not match dtype: "
+        + f"constraint {constraint.__class__}, "
+        + f"dtype: {dtype.__class__}"
+    )
+
     match dtype:
         case ArrayType():
-            return isinstance(constraint, ArrayConstraint)
+            if not isinstance(constraint, ArrayConstraint):
+                raise ValueError(type_mismatch_error_msg)
+        case BinaryType():
+            if not isinstance(constraint, BinaryConstraint):
+                raise ValueError(type_mismatch_error_msg)
         case BooleanType():
-            return isinstance(constraint, BooleanConstraint)
+            if not isinstance(constraint, BooleanConstraint):
+                raise ValueError(type_mismatch_error_msg)
+        case ByteType():
+            if not isinstance(constraint, ByteConstraint):
+                raise ValueError(type_mismatch_error_msg)
+            if not constraint.min_value >= -128 and constraint.max_value <= 127:
+                raise ValueError(
+                    "ByteConstraint min_value has to be >= -128 and max_value has to be <= 127."
+                )
         case DateType():
-            return isinstance(constraint, DateConstraint)
+            if not isinstance(constraint, DateConstraint):
+                raise ValueError(type_mismatch_error_msg)
+        case DayTimeIntervalType():
+            if not isinstance(constraint, DayTimeIntervalConstraint):
+                raise ValueError(type_mismatch_error_msg)
+        case DecimalType():
+            if not isinstance(constraint, DecimalConstraint):
+                raise ValueError(type_mismatch_error_msg)
+        case DoubleType():
+            if not isinstance(constraint, DoubleConstraint):
+                raise ValueError(type_mismatch_error_msg)
         case FloatType():
-            return isinstance(constraint, FloatConstraint)
+            if not isinstance(constraint, FloatConstraint):
+                raise ValueError(type_mismatch_error_msg)
         case IntegerType():
-            return isinstance(constraint, IntegerConstraint)
+            if not isinstance(constraint, IntegerConstraint):
+                raise ValueError(type_mismatch_error_msg)
+            if not (
+                constraint.min_value >= -2147483648
+                and constraint.max_value <= 2147483647
+            ):
+                raise ValueError(
+                    "IntegerConstraint min_value has to be >= -2147483648 "
+                    "and max_value has to be <= 2147483647."
+                )
+        case LongType():
+            if not isinstance(constraint, LongConstraint):
+                raise ValueError(type_mismatch_error_msg)
+            if not (
+                constraint.min_value >= -9223372036854775808
+                and constraint.max_value <= 9223372036854775807
+            ):
+                raise ValueError(
+                    "LongConstraint min_value has to be >= -9223372036854775808 "
+                    "and max_value has to be <= 9223372036854775807."
+                )
+        case ShortType():
+            if not isinstance(constraint, ShortConstraint):
+                raise ValueError(type_mismatch_error_msg)
+            if not (constraint.min_value >= -32768 and constraint.max_value <= 32767):
+                raise ValueError(
+                    "ShortConstraint min_value has to be >= -32768 and max_value has to be <= 32767."
+                )
         case StringType():
-            return isinstance(constraint, StringConstraint)
+            if not isinstance(constraint, StringConstraint):
+                raise ValueError(type_mismatch_error_msg)
         case StructType():
-            return isinstance(constraint, StructConstraint)
+            if not isinstance(constraint, StructConstraint):
+                raise ValueError(type_mismatch_error_msg)
         case TimestampType():
-            return isinstance(constraint, TimestampConstraint)
+            if not isinstance(constraint, TimestampConstraint):
+                raise ValueError(type_mismatch_error_msg)
+        case TimestampNTZType():
+            if not isinstance(constraint, TimestampNTZConstraint):
+                raise ValueError(type_mismatch_error_msg)
         case _:
-            raise ValueError("Unsupported dtype")
+            raise ValueError(f"Unsupported dtype: {dtype.__class__}")
 
 
 def _generate_fake_string(fake: Faker, constraint: StringConstraint) -> str:

@@ -9,11 +9,15 @@ authors = [
 requires-python = ">=3.11"
 dependencies = [
     "faker>=36.1.1",
-    "pyspark>=3.5.0",
 ]
 classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+]
+
+[project.optional-dependencies]
+pyspark = [
+    "pyspark>=3.5.0",
 ]
 
 [project.urls]
@@ -28,6 +32,8 @@ dev = [
     "mypy>=1.15.0",
     "pytest>=8.3.4",
     "ruff>=0.9.7",
+    "pyspark>=3.5.0",
+    "coverage>=7.6.12",
 ]
 
 [tool.ruff.lint]

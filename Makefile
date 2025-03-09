@@ -8,7 +8,8 @@ lint-fix:
 	uv run ruff check --fix
 
 test:
-	uv run pytest
+	uv run coverage run -m pytest
+	uv run coverage report -m
 
 check: test lint type-check
 

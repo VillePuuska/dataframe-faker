@@ -16,12 +16,17 @@ version = "0.1.2"
 source = { editable = "." }
 dependencies = [
     { name = "faker" },
+]
+
+[package.optional-dependencies]
+pyspark = [
     { name = "pyspark" },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "mypy" },
+    { name = "pyspark" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -29,12 +34,13 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "faker", specifier = ">=36.1.1" },
-    { name = "pyspark", specifier = ">=3.5.0" },
+    { name = "pyspark", marker = "extra == 'pyspark'", specifier = ">=3.5.0" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "mypy", specifier = ">=1.15.0" },
+    { name = "pyspark", specifier = ">=3.5.0" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "ruff", specifier = ">=0.9.7" },
 ]

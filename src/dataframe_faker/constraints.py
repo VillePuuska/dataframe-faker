@@ -150,7 +150,13 @@ class TimestampNTZConstraint(Constraint):
 
 # yearmonthinterval
 
-# daytimeinterval
+
+@dataclass(kw_only=True)
+class DayTimeIntervalConstraint(Constraint):
+    min_value: datetime.timedelta = datetime.timedelta()
+    max_value: datetime.timedelta = datetime.timedelta(days=1)
+    allowed_values: list[datetime.timedelta] | None = None
+
 
 ##################
 ### Complex types

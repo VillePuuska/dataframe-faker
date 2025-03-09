@@ -12,6 +12,7 @@ from pyspark.sql.types import (
     BooleanType,
     ByteType,
     DateType,
+    DayTimeIntervalType,
     DecimalType,
     DoubleType,
     FloatType,
@@ -31,6 +32,7 @@ from dataframe_faker.constraints import (
     BooleanConstraint,
     ByteConstraint,
     DateConstraint,
+    DayTimeIntervalConstraint,
     DecimalConstraint,
     DoubleConstraint,
     FloatConstraint,
@@ -91,6 +93,7 @@ def test__validate_dtype_and_constraint() -> None:
         BooleanType(),
         ByteType(),
         DateType(),
+        DayTimeIntervalType(),
         DecimalType(),
         DoubleType(),
         FloatType(),
@@ -108,6 +111,7 @@ def test__validate_dtype_and_constraint() -> None:
         BooleanConstraint(),
         ByteConstraint(),
         DateConstraint(),
+        DayTimeIntervalConstraint(),
         DecimalConstraint(),
         DoubleConstraint(),
         FloatConstraint(),
@@ -261,6 +265,18 @@ def test_generate_fake_value(fake: Faker) -> None:
             datetime.date(year=2024, month=3, day=2),
             datetime.date(year=2024, month=3, day=3),
         ]
+
+        actual_daytimeinterval = generate_fake_value(
+            dtype=DayTimeIntervalType(),
+            fake=fake,
+            nullable=False,
+            constraint=DayTimeIntervalConstraint(
+                min_value=datetime.timedelta(minutes=2.1),
+                max_value=datetime.timedelta(minutes=2.1),
+            ),
+        )
+        assert isinstance(actual_daytimeinterval, datetime.timedelta)
+        assert actual_daytimeinterval == datetime.timedelta(minutes=2.1)
 
         actual_decimal = generate_fake_value(
             dtype=DecimalType(scale=3),
@@ -541,6 +557,8 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
     boolean_col: boolean,
     byte_col: byte,
     date_col: date,
+    daytimeinterval_col_1: interval day,
+    daytimeinterval_col_2: interval hour to second,
     decimal_col_1: decimal(1,0),
     decimal_col_2: decimal(28,10),
     double_col: double,
@@ -574,6 +592,14 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
             "date_col": DateConstraint(
                 min_value=datetime.date(year=2020, month=1, day=1),
                 max_value=datetime.date(year=2020, month=1, day=1),
+            ),
+            "daytimeinterval_col_1": DayTimeIntervalConstraint(
+                min_value=datetime.timedelta(days=2),
+                max_value=datetime.timedelta(days=2, hours=2),
+            ),
+            "daytimeinterval_col_2": DayTimeIntervalConstraint(
+                min_value=datetime.timedelta(hours=1, seconds=1),
+                max_value=datetime.timedelta(hours=1, seconds=1),
             ),
             "decimal_col_1": DecimalConstraint(
                 min_value=Decimal("2.1"), max_value=Decimal("2.1")
@@ -665,6 +691,20 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
     actual_date_col = [row.date_col for row in actual_collected]
     expected_date_col = [datetime.date(year=2020, month=1, day=1) for _ in range(rows)]
     assert actual_date_col == expected_date_col
+
+    actual_daytimeinterval_col_1 = [
+        row.daytimeinterval_col_1 for row in actual_collected
+    ]
+    expected_daytimeinterval_col_1 = [datetime.timedelta(days=2) for _ in range(rows)]
+    assert actual_daytimeinterval_col_1 == expected_daytimeinterval_col_1
+
+    actual_daytimeinterval_col_2 = [
+        row.daytimeinterval_col_2 for row in actual_collected
+    ]
+    expected_daytimeinterval_col_2 = [
+        datetime.timedelta(hours=1, seconds=1) for _ in range(rows)
+    ]
+    assert actual_daytimeinterval_col_2 == expected_daytimeinterval_col_2
 
     actual_decimal_col_1 = [row.decimal_col_1 for row in actual_collected]
     expected_decimal_col_1 = [Decimal("2") for _ in range(rows)]

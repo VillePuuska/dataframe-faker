@@ -13,6 +13,7 @@ from pyspark.sql.types import (
     ByteType,
     DataType,
     DateType,
+    DayTimeIntervalType,
     DecimalType,
     DoubleType,
     FloatType,
@@ -32,6 +33,7 @@ from .constraints import (
     ByteConstraint,
     Constraint,
     DateConstraint,
+    DayTimeIntervalConstraint,
     DecimalConstraint,
     DoubleConstraint,
     FloatConstraint,
@@ -199,6 +201,36 @@ def generate_fake_value(
             return fake.date_between_dates(
                 date_start=constraint.min_value, date_end=constraint.max_value
             )
+        case DayTimeIntervalType():
+            if constraint is None:
+                constraint = DayTimeIntervalConstraint()
+            constraint = cast(DayTimeIntervalConstraint, constraint)
+
+            fake_timedelta = (
+                fake.time_delta(
+                    end_datetime=constraint.max_value - constraint.min_value
+                )
+                + constraint.min_value
+            )
+            fake_timedelta -= datetime.timedelta(
+                microseconds=fake_timedelta.microseconds
+            )
+
+            match dtype.endField:
+                case DayTimeIntervalType.MINUTE:
+                    fake_timedelta -= datetime.timedelta(
+                        seconds=fake_timedelta.seconds % 60
+                    )
+                case DayTimeIntervalType.HOUR:
+                    fake_timedelta -= datetime.timedelta(
+                        seconds=fake_timedelta.seconds % (60 * 60)
+                    )
+                case DayTimeIntervalType.DAY:
+                    fake_timedelta -= datetime.timedelta(
+                        seconds=fake_timedelta.seconds % (60 * 60 * 24)
+                    )
+
+            return fake_timedelta
         case DecimalType():
             if constraint is None:
                 constraint = DecimalConstraint()
@@ -325,6 +357,9 @@ def _validate_dtype_and_constraint(
                 )
         case DateType():
             if not isinstance(constraint, DateConstraint):
+                raise ValueError(type_mismatch_error_msg)
+        case DayTimeIntervalType():
+            if not isinstance(constraint, DayTimeIntervalConstraint):
                 raise ValueError(type_mismatch_error_msg)
         case DecimalType():
             if not isinstance(constraint, DecimalConstraint):

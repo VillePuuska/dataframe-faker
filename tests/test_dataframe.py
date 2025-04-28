@@ -352,6 +352,9 @@ def test_generate_fake_value(fake: Faker) -> None:
             constraint=StringConstraint(string_type="address"),
         )
         assert isinstance(actual_string, str)
+        assert len(actual_string) > 0  # Address should not be empty
+        assert "\n" in actual_string  # Faker's address() typically includes newlines
+        assert any(char.isdigit() for char in actual_string)  # Should contain numbers
 
         actual_string = generate_fake_value(
             dtype=StringType(),
@@ -817,3 +820,128 @@ def test_generate_fake_string_with_custom_alphabet(fake: Faker) -> None:
     assert result.count("-") == 4
     for c in result:
         assert c in UUID_ALPHABET
+
+
+def test_edge_cases(fake: Faker) -> None:
+    # Test empty allowed values
+    with pytest.raises(ValueError, match="Empty list of allowed values specified"):
+        generate_fake_value(
+            dtype=IntegerType(),
+            fake=fake,
+            constraint=IntegerConstraint(allowed_values=[]),
+        )
+
+    # Test unsupported dtype validation
+    with pytest.raises(ValueError, match="Unsupported dtype"):
+        _validate_dtype_and_constraint(
+            dtype=None,  # type: ignore
+            constraint=None,
+        )
+
+
+def test_timestamp_edge_cases(fake: Faker) -> None:
+    # Test timezone handling with NTZ timestamp when min/max values have timezones
+    actual = generate_fake_value(
+        dtype=TimestampNTZType(),
+        fake=fake,
+        constraint=TimestampNTZConstraint(
+            min_value=datetime.datetime(
+                year=2020, month=1, day=1, tzinfo=datetime.timezone.utc
+            ),
+            max_value=datetime.datetime(
+                year=2020, month=1, day=1, tzinfo=datetime.timezone.utc
+            ),
+        ),
+    )
+    assert isinstance(actual, datetime.datetime)
+    assert actual.tzinfo is None
+
+    # Test timestamp generation with various timezone configurations
+    actual = generate_fake_value(
+        dtype=TimestampType(),
+        fake=fake,
+        constraint=TimestampConstraint(
+            min_value=datetime.datetime(2020, 1, 1),  # No timezone
+            max_value=datetime.datetime(2020, 1, 1),  # No timezone
+            tzinfo=datetime.timezone.utc,  # Explicit timezone in constraint
+        ),
+    )
+    assert isinstance(actual, datetime.datetime)
+    assert actual.tzinfo == datetime.timezone.utc
+
+
+def test_unknown_string_type(fake: Faker) -> None:
+    # Test handling of unknown string type
+    with pytest.raises(ValueError, match="Unknown string type"):
+        _generate_fake_string(
+            fake=fake,
+            constraint=StringConstraint(string_type="non_existent_type"),  # type: ignore
+        )
+
+
+def test_daytime_interval_types(fake: Faker) -> None:
+    # Test different DayTimeIntervalType field types
+    interval = datetime.timedelta(days=2, hours=3, minutes=30, seconds=15)
+
+    # Test DAY field type
+    result = generate_fake_value(
+        dtype=DayTimeIntervalType(
+            startField=DayTimeIntervalType.DAY, endField=DayTimeIntervalType.DAY
+        ),
+        fake=fake,
+        constraint=DayTimeIntervalConstraint(
+            min_value=interval,
+            max_value=interval,
+        ),
+    )
+    assert isinstance(result, datetime.timedelta)
+    assert result.days == interval.days
+    assert result.seconds == 0  # Hours/minutes/seconds should be truncated
+
+    # Test HOUR field type
+    result = generate_fake_value(
+        dtype=DayTimeIntervalType(
+            startField=DayTimeIntervalType.HOUR, endField=DayTimeIntervalType.HOUR
+        ),
+        fake=fake,
+        constraint=DayTimeIntervalConstraint(
+            min_value=interval,
+            max_value=interval,
+        ),
+    )
+    assert isinstance(result, datetime.timedelta)
+    assert result.seconds % 3600 == 0  # Minutes/seconds should be truncated
+
+    # Test MINUTE field type
+    result = generate_fake_value(
+        dtype=DayTimeIntervalType(
+            startField=DayTimeIntervalType.MINUTE, endField=DayTimeIntervalType.MINUTE
+        ),
+        fake=fake,
+        constraint=DayTimeIntervalConstraint(
+            min_value=interval,
+            max_value=interval,
+        ),
+    )
+    assert isinstance(result, datetime.timedelta)
+    assert result.seconds % 60 == 0  # Only seconds should be truncated
+
+
+def test_timestamp_microsecond_edge_cases(fake: Faker) -> None:
+    # Test microsecond adjustment when timestamp is outside range
+    min_dt = datetime.datetime(2020, 1, 1, microsecond=500000)
+    max_dt = datetime.datetime(2020, 1, 1, microsecond=600000)
+
+    # Force Faker to generate a timestamp that needs microsecond adjustment
+    for _ in range(100):  # We need multiple attempts since Faker's generation is random
+        result = generate_fake_value(
+            dtype=TimestampType(),
+            fake=fake,
+            constraint=TimestampConstraint(
+                min_value=min_dt,
+                max_value=max_dt,
+            ),
+        )
+        assert isinstance(result, datetime.datetime)
+        assert result.microsecond >= min_dt.microsecond
+        assert result.microsecond <= max_dt.microsecond

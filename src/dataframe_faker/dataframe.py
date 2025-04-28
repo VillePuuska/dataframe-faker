@@ -418,7 +418,7 @@ def _validate_dtype_and_constraint(
 def _generate_fake_string(fake: Faker, constraint: StringConstraint) -> str:
     match constraint.string_type:
         case "address":
-            return ""
+            return fake.address()
         case "any":
             size = random.randrange(
                 start=constraint.min_length, stop=constraint.max_length + 1

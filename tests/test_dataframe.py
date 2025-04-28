@@ -580,6 +580,20 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
     timestamp_ntz_col: timestamp_ntz
     """
     rows = 100
+
+    # Verify that generate_fake_dataframe does not blow up if constraints are not provided
+    # and that it generates a DataFrame with the correct schema
+    # and the expected number of rows
+    actual = generate_fake_dataframe(
+        schema=schema_str,
+        spark=spark,
+        fake=fake,
+        rows=100,
+    )
+    assert actual.count() == rows
+    assert actual.schema == spark.createDataFrame([], schema=schema_str).schema
+
+    # Then check that constraints actually work
     actual = generate_fake_dataframe(
         schema=schema_str,
         spark=spark,

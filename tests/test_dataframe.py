@@ -822,7 +822,7 @@ def test_generate_fake_string_with_custom_alphabet(fake: Faker) -> None:
         assert c in UUID_ALPHABET
 
 
-def test_edge_cases(fake: Faker) -> None:
+def test_edge_cases(spark: SparkSession, fake: Faker) -> None:
     # Test empty allowed values
     with pytest.raises(ValueError, match="Empty list of allowed values specified"):
         generate_fake_value(
@@ -837,6 +837,16 @@ def test_edge_cases(fake: Faker) -> None:
             dtype=None,  # type: ignore
             constraint=None,
         )
+
+    # Verify that generate_fake_dataframe works without providing Faker or constraints
+    schema_str = "id: int, name: string"
+    df = generate_fake_dataframe(
+        schema=schema_str,
+        rows=5,
+        spark=spark,
+    )
+    assert df.count() == 5
+    assert df.schema == spark.createDataFrame([], schema=schema_str).schema
 
 
 def test_timestamp_edge_cases(fake: Faker) -> None:

@@ -852,6 +852,16 @@ def test_edge_cases(spark: SparkSession, fake: Faker) -> None:
             constraint=None,
         )
 
+    # Test unsupported dtype in generate_fake_value
+    class UnsupportedType:
+        pass
+
+    with pytest.raises(ValueError, match="Unsupported dtype"):
+        generate_fake_value(
+            dtype=UnsupportedType(),  # type: ignore
+            fake=fake,
+        )
+
     # Verify that generate_fake_dataframe works without providing Faker or constraints
     schema_str = "id: int, name: string"
     df = generate_fake_dataframe(

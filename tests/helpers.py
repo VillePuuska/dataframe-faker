@@ -23,6 +23,6 @@ def assert_schema_equal(
     if not check_column_order:
         actual.fields = list(sorted(actual.fields, key=lambda field: field.name))
         expected.fields = list(sorted(expected.fields, key=lambda field: field.name))
-    assert (
-        actual.jsonValue() == expected.jsonValue()
-    ), f"Schema mismatch.\nActual:\n{json.dumps(actual.jsonValue(), indent=2)}\nExpected:\n{json.dumps(expected.jsonValue(), indent=2)}"
+    assert actual.jsonValue() == expected.jsonValue(), (
+        f"Schema mismatch.\nActual:\n{json.dumps(actual.jsonValue(), indent=2)}\nExpected:\n{json.dumps(expected.jsonValue(), indent=2)}"
+    )

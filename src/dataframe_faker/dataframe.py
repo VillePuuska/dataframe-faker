@@ -423,7 +423,10 @@ def _generate_fake_string(fake: Faker, constraint: StringConstraint) -> str:
             size = random.randrange(
                 start=constraint.min_length, stop=constraint.max_length + 1
             )
-            return "".join(random.choices(population=ALPHABET, k=size))
+            alphabet = (
+                constraint.alphabet if constraint.alphabet is not None else ALPHABET
+            )
+            return "".join(random.choices(population=alphabet, k=size))
         case "email":
             return fake.email()
         case "first_name":

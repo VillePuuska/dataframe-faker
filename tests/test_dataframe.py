@@ -47,6 +47,7 @@ from dataframe_faker.constraints import (
 from dataframe_faker.dataframe import (
     ALPHABET,
     _convert_schema_string_to_schema,
+    _generate_fake_string,
     _validate_dtype_and_constraint,
     generate_fake_dataframe,
     generate_fake_value,
@@ -783,3 +784,36 @@ def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
         for _ in range(rows)
     ]
     assert actual_timestamp_ntz_col == expected_timestamp_ntz_col
+
+
+def test_generate_fake_string_with_custom_alphabet(fake: Faker) -> None:
+    # Custom alphabet works for "any" string type
+    constraint = StringConstraint(
+        string_type="any", min_length=10, max_length=10, alphabet="abc123"
+    )
+    for _ in range(100):
+        result = _generate_fake_string(fake=fake, constraint=constraint)
+        assert isinstance(result, str)
+        assert len(result) == 10
+        for c in result:
+            assert c in "abc123"
+
+    # Omitting alphabet uses the default ALPHABET
+    constraint = StringConstraint(string_type="any", min_length=10, max_length=10)
+    for _ in range(100):
+        result = _generate_fake_string(fake=fake, constraint=constraint)
+        assert isinstance(result, str)
+        assert len(result) == 10
+        for c in result:
+            assert c in ALPHABET
+
+    # Custom alphabet is not used for other string types, especially "uuid4"
+    constraint = StringConstraint(
+        string_type="uuid4",
+        alphabet="abc123",
+    )
+    result = _generate_fake_string(fake=fake, constraint=constraint)
+    assert len(result) == 36
+    assert result.count("-") == 4
+    for c in result:
+        assert c in UUID_ALPHABET

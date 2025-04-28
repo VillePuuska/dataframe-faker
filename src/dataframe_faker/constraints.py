@@ -84,6 +84,7 @@ class StringConstraint(Constraint):
     min_length: int = 0
     max_length: int = 16
     allowed_values: list[str] | None = None
+    alphabet: str | None = None  # Only used when string_type is "any"
 
 
 ##################

@@ -60,7 +60,7 @@ class DoubleConstraint(Constraint):
 @dataclass(kw_only=True)
 class DecimalConstraint(Constraint):
     min_value: Decimal = Decimal(0)
-    max_value: Decimal = Decimal(100)
+    max_value: Decimal = Decimal(9)
     allowed_values: list[Decimal] | None = None
 
 

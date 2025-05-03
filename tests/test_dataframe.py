@@ -554,6 +554,27 @@ def test_generate_fake_value(fake: Faker) -> None:
         expected_struct = {"a": 1, "b": False}
         assert actual_struct == expected_struct
 
+        # Test with a dict constraint
+        actual_struct = generate_fake_value(
+            dtype=StructType(
+                fields=[
+                    StructField(name="f1", dataType=IntegerType(), nullable=True),
+                    StructField(name="g2", dataType=StringType()),
+                ]
+            ),
+            fake=fake,
+            nullable=False,
+            constraint={
+                "element_constraints": {
+                    "f1": {"null_chance": 1.0},
+                    "g2": {"string_type": "email"},
+                }
+            },
+        )
+        assert isinstance(actual_struct, dict)
+        assert actual_struct["f1"] is None
+        assert is_valid_email(actual_struct["g2"])
+
 
 def test_generate_fake_dataframe(spark: SparkSession, fake: Faker) -> None:
     schema_str = """

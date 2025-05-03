@@ -53,7 +53,7 @@ ALPHABET = string.ascii_letters + string.digits + " "
 def generate_fake_dataframe(
     schema: str | StructType,
     spark: SparkSession,
-    constraints: dict[str, Constraint | None] | None = None,
+    constraints: dict[str, Constraint | dict[str, Any] | None] | None = None,
     rows: int = 100,
     fake: Faker | None = None,
 ) -> DataFrame:
@@ -71,7 +71,8 @@ def generate_fake_dataframe(
         A SparkSession to use for creating the DataFrame.
 
     constraints : optional
-        A dictionary mapping column names to `Constraint`s.
+        A dictionary mapping column names to `Constraint`s or dictionaries
+        that can be converted to `Constraint`s.
 
     rows
         How many rows should the result DataFrame contain.
@@ -83,9 +84,21 @@ def generate_fake_dataframe(
         schema = _convert_schema_string_to_schema(schema=schema, spark=spark)
 
     if constraints is None:
-        constraint = None
+        dataframe_constraint = None
     else:
-        constraint = StructConstraint(element_constraints=constraints)
+        element_constraints: dict[str, Constraint | None] = {}
+        for field in schema.fields:
+            if field.name not in constraints:
+                element_constraints[field.name] = None
+                continue
+            constraint = constraints[field.name]
+            if isinstance(constraint, dict):
+                element_constraints[field.name] = _convert_dict_to_constraint(
+                    constraint=constraint, dtype=field.dataType
+                )
+            else:
+                element_constraints[field.name] = constraint
+        dataframe_constraint = StructConstraint(element_constraints=element_constraints)
 
     if fake is None:
         fake = Faker()
@@ -93,7 +106,7 @@ def generate_fake_dataframe(
     # Somehow pyright thinks list[dict[str, Any]] does not match any of the `spark.createDataFrame()`
     # overloads, but list[Any] does. Go figure...
     data: list[Any] = [
-        generate_fake_value(dtype=schema, fake=fake, constraint=constraint)
+        generate_fake_value(dtype=schema, fake=fake, constraint=dataframe_constraint)
         for _ in range(rows)
     ]
     return spark.createDataFrame(data=data, schema=schema)
@@ -107,7 +120,7 @@ def generate_fake_value(
     dtype: DataType,
     fake: Faker,
     nullable: bool = False,
-    constraint: Constraint | None = None,
+    constraint: Constraint | dict[str, str | Any] | None = None,
 ) -> Any:
     """
     Function to generate a fake value with type/schema matching `dtype`
@@ -130,8 +143,12 @@ def generate_fake_value(
         value being null needs to be specified in the `constraint`.
 
     constraint : optional
-        A `Constraint` to specify what kind of value should be generated.
+        A `Constraint` or a dictionary that can be converted to a `Constraint` to
+        specify what kind of value should be generated.
     """
+    if isinstance(constraint, dict):
+        constraint = _convert_dict_to_constraint(constraint=constraint, dtype=dtype)
+
     if constraint is not None:
         _validate_dtype_and_constraint(dtype=dtype, constraint=constraint)
 

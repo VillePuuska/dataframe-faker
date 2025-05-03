@@ -25,6 +25,36 @@ json_message: struct<
     dt: timestamp
 >
 """
+
+# Using dictionaries to specify constraints
+df = generate_fake_dataframe(
+    schema=schema_str,
+    constraints={
+        "uuid": {
+            "string_type": "uuid4",
+        },
+        "json_message": {
+            "measurement": {
+                "min_value": 25.0,
+                "max_value": 100.0,
+            },
+            "dt": {
+                "min_value": datetime.datetime.fromisoformat(
+                    "2025-01-01T00:00:00.000Z"
+                ),
+                "max_value": datetime.datetime.fromisoformat(
+                    "2025-01-31T23:59:59.999Z"
+                ),
+            },
+        },
+    },
+    rows=5,
+    spark=spark,
+)
+print(df)
+df.show(truncate=False)
+
+# Using internal Constraint-types to specify constraints
 df = generate_fake_dataframe(
     schema=schema_str,
     constraints={
@@ -46,7 +76,5 @@ df = generate_fake_dataframe(
     rows=5,
     spark=spark,
 )
-
 print(df)
-
 df.show(truncate=False)

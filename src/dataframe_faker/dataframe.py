@@ -1,6 +1,7 @@
 import datetime
 import random
 import string
+from dataclasses import fields
 from decimal import Decimal
 from typing import Any, cast
 
@@ -319,6 +320,97 @@ def generate_fake_value(
         case _:
             raise ValueError("Unsupported dtype")
     raise NotImplementedError
+
+
+def _convert_dict_to_constraint(
+    constraint: dict[str, Any] | None, dtype: DataType
+) -> Constraint | None:
+    """
+    Helper to convert a dictionary to a Constraint.
+
+    Raises a ValueError if the dtype is unsupported.
+    """
+    if constraint is None:
+        return None
+
+    if not isinstance(constraint, dict):
+        raise ValueError(
+            "Constraint must be a dictionary or None. "
+            + f"Got {constraint.__class__} instead."
+        )
+
+    result_constraint: Constraint | None = None
+    match dtype:
+        case ArrayType():
+            result_constraint = ArrayConstraint()
+        case BinaryType():
+            result_constraint = BinaryConstraint()
+        case BooleanType():
+            result_constraint = BooleanConstraint()
+        case ByteType():
+            result_constraint = ByteConstraint()
+        case DateType():
+            result_constraint = DateConstraint()
+        case DayTimeIntervalType():
+            result_constraint = DayTimeIntervalConstraint()
+        case DecimalType():
+            result_constraint = DecimalConstraint()
+        case DoubleType():
+            result_constraint = DoubleConstraint()
+        case FloatType():
+            result_constraint = FloatConstraint()
+        case IntegerType():
+            result_constraint = IntegerConstraint()
+        case LongType():
+            result_constraint = LongConstraint()
+        case ShortType():
+            result_constraint = ShortConstraint()
+        case StringType():
+            result_constraint = StringConstraint()
+        case StructType():
+            result_constraint = StructConstraint()
+        case TimestampType():
+            result_constraint = TimestampConstraint()
+        case TimestampNTZType():
+            result_constraint = TimestampNTZConstraint()
+        case _:
+            raise ValueError(f"Unsupported dtype: {dtype.__class__}")
+
+    for field in fields(result_constraint):
+        if field.name in constraint:
+            value: dict[str, str | Constraint | None] | Constraint | None
+
+            if field.name == "element_constraints":
+                assert isinstance(dtype, StructType)
+                element_constraints = constraint.get("element_constraints")
+                if element_constraints is None:
+                    element_constraints = {}
+                if not isinstance(element_constraints, dict):
+                    raise ValueError(
+                        "element_constraints must be a dictionary or None. "
+                        + f"Got {element_constraints.__class__} instead."
+                    )
+                value = {}
+                for dtype_field in dtype.fields:
+                    if dtype_field.name in element_constraints:
+                        value[dtype_field.name] = _convert_dict_to_constraint(
+                            constraint=constraint[field.name][dtype_field.name],
+                            dtype=dtype_field.dataType,
+                        )
+
+            elif field.name == "element_constraint":
+                assert isinstance(dtype, ArrayType)
+                value = _convert_dict_to_constraint(
+                    constraint=constraint.get("element_constraint"),
+                    dtype=dtype.elementType,
+                )
+
+            else:
+                value = constraint[field.name]
+
+            setattr(result_constraint, field.name, value)
+
+    return result_constraint
 
 
 def _validate_dtype_and_constraint(

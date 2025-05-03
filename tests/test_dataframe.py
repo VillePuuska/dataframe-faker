@@ -46,6 +46,7 @@ from dataframe_faker.constraints import (
 )
 from dataframe_faker.dataframe import (
     ALPHABET,
+    _convert_dict_to_constraint,
     _convert_schema_string_to_schema,
     _generate_fake_string,
     _validate_dtype_and_constraint,
@@ -979,3 +980,101 @@ def test_timestamp_microsecond_edge_cases(fake: Faker) -> None:
         assert isinstance(result, datetime.datetime)
         assert result.microsecond >= min_dt.microsecond
         assert result.microsecond <= max_dt.microsecond
+
+
+def test_convert_dict_to_constraint(fake: Faker) -> None:
+    # Test basic conversion for simple types
+    result = _convert_dict_to_constraint(
+        constraint={"min_value": 1, "max_value": 10}, dtype=IntegerType()
+    )
+    assert isinstance(result, IntegerConstraint)
+    assert result.min_value == 1
+    assert result.max_value == 10
+
+    # Test array type with element constraints
+    result = _convert_dict_to_constraint(
+        constraint={
+            "min_length": 2,
+            "max_length": 5,
+            "element_constraint": {"min_value": 0, "max_value": 100},
+        },
+        dtype=ArrayType(elementType=IntegerType()),
+    )
+    assert isinstance(result, ArrayConstraint)
+    assert result.min_length == 2
+    assert result.max_length == 5
+    assert isinstance(result.element_constraint, IntegerConstraint)
+    assert result.element_constraint.min_value == 0  # type: ignore
+    assert result.element_constraint.max_value == 100  # type: ignore
+
+    # Test struct type with nested constraints
+    result = _convert_dict_to_constraint(
+        constraint={
+            "element_constraints": {
+                "age": {"min_value": 0, "max_value": 120},
+                "name": {"string_type": "name"},
+            }
+        },
+        dtype=StructType(
+            [StructField("age", IntegerType()), StructField("name", StringType())]
+        ),
+    )
+    assert isinstance(result, StructConstraint)
+    assert isinstance(result.element_constraints["age"], IntegerConstraint)
+    assert result.element_constraints["age"].min_value == 0
+    assert result.element_constraints["age"].max_value == 120
+    assert isinstance(result.element_constraints["name"], StringConstraint)
+    assert result.element_constraints["name"].string_type == "name"
+
+    # Test None constraint
+    result = _convert_dict_to_constraint(constraint=None, dtype=IntegerType())
+    assert result is None
+
+    # Test invalid constraint type
+    with pytest.raises(ValueError, match="Constraint must be a dictionary or None"):
+        _convert_dict_to_constraint(constraint=[], dtype=IntegerType())  # type: ignore
+
+    # Test unsupported dtype
+    with pytest.raises(ValueError, match="Unsupported dtype"):
+        _convert_dict_to_constraint(
+            constraint={"min_value": 1},
+            dtype=None,  # type: ignore
+        )
+
+    # Test invalid element_constraints type
+    with pytest.raises(
+        ValueError, match="element_constraints must be a dictionary or None"
+    ):
+        _convert_dict_to_constraint(
+            constraint={"element_constraints": []},  # type: ignore
+            dtype=StructType([StructField("field", IntegerType())]),
+        )
+
+    # Test every supported dtype with default constraints when given empty dict
+    for dtype, expected_constraint in [
+        (ArrayType(elementType=IntegerType()), ArrayConstraint()),
+        (BinaryType(), BinaryConstraint()),
+        (BooleanType(), BooleanConstraint()),
+        (ByteType(), ByteConstraint()),
+        (DateType(), DateConstraint()),
+        (DayTimeIntervalType(), DayTimeIntervalConstraint()),
+        (DecimalType(scale=2), DecimalConstraint()),
+        (DoubleType(), DoubleConstraint()),
+        (FloatType(), FloatConstraint()),
+        (IntegerType(), IntegerConstraint()),
+        (LongType(), LongConstraint()),
+        (ShortType(), ShortConstraint()),
+        (StringType(), StringConstraint()),
+        (
+            StructType(fields=[StructField(name="field", dataType=IntegerType())]),
+            StructConstraint(),
+        ),
+        (TimestampNTZType(), TimestampNTZConstraint()),
+        (TimestampType(), TimestampConstraint()),
+    ]:
+        result = _convert_dict_to_constraint(
+            constraint={},
+            dtype=dtype,
+        )
+        assert isinstance(result, type(expected_constraint))
+        assert result == expected_constraint

@@ -36,6 +36,9 @@ jobs:
       - name: run mypy
         run: uv run --group dev mypy .
 
+      - name: run pyrefly
+        run: uv run --group dev pyrefly check
+
   build:
     name: build
     runs-on: ubuntu-latest

@@ -1,6 +1,6 @@
 [project]
 name = "dataframe-faker"
-version = "0.1.3"
+version = "0.1.4"
 description = "A simple helper for generating DataFrames filled with fake data with the help of Faker."
 readme = "README.md"
 authors = [{ name = "Ville Puuska", email = "puuskaville@gmail.com" }]

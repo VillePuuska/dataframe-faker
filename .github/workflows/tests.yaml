@@ -97,3 +97,22 @@ jobs:
       
       - name: coverage report
         run: uv run --group dev --python 3.11 coverage report -m
+
+  test-dbr-164:
+    name: tests-dbr-164
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.6.3"
+          python-version: "3.12.3"
+
+      - name: run tests
+        run: uv run --group dev --python 3.12.3 --with pyspark==3.5.2 coverage run -m pytest
+      
+      - name: coverage report
+        run: uv run --group dev --python 3.12.3 coverage report -m

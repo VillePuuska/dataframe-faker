@@ -1,5 +1,6 @@
 type-check:
 	uv run mypy .
+	uv run pyrefly check
 
 format:
 	uv run ruff format

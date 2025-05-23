@@ -1,7 +1,7 @@
 import datetime
 import random
 import string
-from dataclasses import fields
+from dataclasses import fields, is_dataclass
 from decimal import Decimal
 from typing import Any, cast
 
@@ -356,7 +356,7 @@ def _convert_dict_to_constraint(
             + f"Got {constraint.__class__} instead."
         )
 
-    result_constraint: Constraint | None = None
+    result_constraint: Constraint
     match dtype:
         case ArrayType():
             result_constraint = ArrayConstraint()
@@ -393,6 +393,9 @@ def _convert_dict_to_constraint(
         case _:
             raise ValueError(f"Unsupported dtype: {dtype.__class__}")
 
+    # Pyrefly does not understand that `result_constraint` is a dataclass instance
+    # so we need to help it out.
+    assert is_dataclass(result_constraint)
     for field in fields(result_constraint):
         if field.name in constraint:
             value: dict[str, str | Constraint | None] | Constraint | None
@@ -407,13 +410,15 @@ def _convert_dict_to_constraint(
                         "element_constraints must be a dictionary or None. "
                         + f"Got {element_constraints.__class__} instead."
                     )
-                value = {}
+                # Just pyrefly things
+                value_dict: dict[str, Constraint | str | None] = {}
                 for dtype_field in dtype.fields:
                     if dtype_field.name in element_constraints:
-                        value[dtype_field.name] = _convert_dict_to_constraint(
+                        value_dict[dtype_field.name] = _convert_dict_to_constraint(
                             constraint=constraint[field.name][dtype_field.name],
                             dtype=dtype_field.dataType,
                         )
+                value = value_dict
 
             elif field.name == "element_constraint":
                 assert isinstance(dtype, ArrayType)

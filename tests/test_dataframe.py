@@ -1108,6 +1108,23 @@ def test_convert_dict_to_constraint(fake: Faker) -> None:
             dtype=StructType([StructField("field", IntegerType())]),
         )
 
+    # Test giving a DecimalConstraint min_value and max_value as strings and ints
+    result = _convert_dict_to_constraint(
+        constraint={"min_value": "0.999", "max_value": "9.999"},
+        dtype=DecimalType(precision=4, scale=3),
+    )
+    assert isinstance(result, DecimalConstraint)
+    assert result.min_value == Decimal("0.999")
+    assert result.max_value == Decimal("9.999")
+
+    result = _convert_dict_to_constraint(
+        constraint={"min_value": 99, "max_value": 100},
+        dtype=DecimalType(precision=3, scale=0),
+    )
+    assert isinstance(result, DecimalConstraint)
+    assert result.min_value == Decimal("99")
+    assert result.max_value == Decimal("100")
+
     # Test every supported dtype with default constraints when given empty dict
     for dtype, expected_constraint in [
         (ArrayType(elementType=IntegerType()), ArrayConstraint()),

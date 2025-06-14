@@ -416,7 +416,7 @@ def _convert_dict_to_constraint(
     assert is_dataclass(result_constraint)
     for field in fields(result_constraint):
         if field.name in constraint:
-            value: dict[str, str | Constraint | None] | Constraint | None
+            value: Any
 
             if field.name == "element_constraints":
                 assert isinstance(dtype, StructType)
@@ -448,7 +448,18 @@ def _convert_dict_to_constraint(
             else:
                 value = constraint[field.name]
 
-            setattr(result_constraint, field.name, value)
+            if isinstance(dtype, DecimalType) and field.name in (
+                "min_value",
+                "max_value",
+            ):
+                if not isinstance(value, (str, int)):
+                    raise ValueError(
+                        "For Decimals, min_value and max_value must be a string or an int. "
+                        + f"Got {value.__class__} {value=} instead."
+                    )
+                setattr(result_constraint, field.name, Decimal(value))
+            else:
+                setattr(result_constraint, field.name, value)
 
     return result_constraint
 

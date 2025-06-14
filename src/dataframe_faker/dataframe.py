@@ -304,21 +304,21 @@ def generate_fake_value(
                 constraint = TimestampConstraint()
             constraint = cast(TimestampConstraint, constraint)
 
-            if isinstance(constraint.min_value, str):
-                min_value = datetime.datetime.fromisoformat(constraint.min_value)
-            else:
-                min_value = constraint.min_value
-            if isinstance(constraint.max_value, str):
-                max_value = datetime.datetime.fromisoformat(constraint.max_value)
-            else:
-                max_value = constraint.max_value
+            # if isinstance(constraint.min_value, str):
+            #     min_value = datetime.datetime.fromisoformat(constraint.min_value)
+            # else:
+            #     min_value = constraint.min_value
+            # if isinstance(constraint.max_value, str):
+            #     max_value = datetime.datetime.fromisoformat(constraint.max_value)
+            # else:
+            #     max_value = constraint.max_value
 
             if dtype == TimestampNTZType():
                 tzinfo = None
-                if min_value.tzinfo is not None:
-                    min_value = min_value.replace(tzinfo=None)
-                if max_value.tzinfo is not None:
-                    max_value = max_value.replace(tzinfo=None)
+                if constraint.min_value.tzinfo is not None:
+                    constraint.min_value = constraint.min_value.replace(tzinfo=None)
+                if constraint.max_value.tzinfo is not None:
+                    constraint.max_value = constraint.max_value.replace(tzinfo=None)
             else:
                 # tzinfo for generated value is picked in the order
                 # constraint.tzinfo
@@ -329,28 +329,32 @@ def generate_fake_value(
                     tz
                     for tz in [
                         constraint.tzinfo,
-                        min_value.tzinfo,
-                        max_value.tzinfo,
+                        constraint.min_value.tzinfo,
+                        constraint.max_value.tzinfo,
                         datetime.timezone.utc,
                     ]
                     if tz is not None
                 ][0]
-                if min_value.tzinfo is None:
-                    min_value = min_value.replace(tzinfo=datetime.timezone.utc)
-                if max_value.tzinfo is None:
-                    max_value = max_value.replace(tzinfo=datetime.timezone.utc)
+                if constraint.min_value.tzinfo is None:
+                    constraint.min_value = constraint.min_value.replace(
+                        tzinfo=datetime.timezone.utc
+                    )
+                if constraint.max_value.tzinfo is None:
+                    constraint.max_value = constraint.max_value.replace(
+                        tzinfo=datetime.timezone.utc
+                    )
             dt = fake.date_time_between(
-                start_date=min_value,
-                end_date=max_value,
+                start_date=constraint.min_value,
+                end_date=constraint.max_value,
                 tzinfo=tzinfo,
             )
             # NOTE: For some reason Faker does not respect limits when generating
             # microseconds so the datetime can fall out of the given range.
             # The following replace is done to fix it.
-            if dt < min_value:
-                dt = dt.replace(microsecond=min_value.microsecond)
-            elif dt > max_value:
-                dt = dt.replace(microsecond=max_value.microsecond)
+            if dt < constraint.min_value:
+                dt = dt.replace(microsecond=constraint.min_value.microsecond)
+            elif dt > constraint.max_value:
+                dt = dt.replace(microsecond=constraint.max_value.microsecond)
             return dt
         case _:
             raise ValueError("Unsupported dtype")
@@ -452,12 +456,46 @@ def _convert_dict_to_constraint(
                 "min_value",
                 "max_value",
             ):
-                if not isinstance(value, (str, int)):
+                if not isinstance(value, (str, int, Decimal)):
                     raise ValueError(
-                        "For Decimals, min_value and max_value must be a string or an int. "
+                        "For Decimals, min_value and max_value must be a string, an int, or a Decimal. "
                         + f"Got {value.__class__} {value=} instead."
                     )
                 setattr(result_constraint, field.name, Decimal(value))
+            elif isinstance(dtype, DecimalType) and field.name == "allowed_values":
+                if not isinstance(value, list):
+                    raise ValueError("allowed_values must be a list.")
+                decimal_values = []
+                for val in value:
+                    if not isinstance(val, (str, int, Decimal)):
+                        raise ValueError(
+                            "For Decimals, allowed_values must be strings, ints, or Decimals. "
+                            + f"Got {value.__class__} {value=} instead."
+                        )
+                    decimal_values.append(Decimal(val))
+                setattr(result_constraint, field.name, decimal_values)
+
+            elif isinstance(
+                dtype, (TimestampType, TimestampNTZType)
+            ) and field.name in (
+                "min_value",
+                "max_value",
+            ):
+                if isinstance(value, str):
+                    value = datetime.datetime.fromisoformat(value)
+                setattr(result_constraint, field.name, value)
+            elif (
+                isinstance(dtype, (TimestampType, TimestampNTZType))
+                and field.name == "allowed_values"
+            ):
+                if not isinstance(value, list):
+                    raise ValueError("allowed_values must be a list.")
+                datetime_values = []
+                for val in value:
+                    if isinstance(val, str):
+                        val = datetime.datetime.fromisoformat(val)
+                    datetime_values.append(val)
+                setattr(result_constraint, field.name, datetime_values)
             else:
                 setattr(result_constraint, field.name, value)
 

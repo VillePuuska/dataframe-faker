@@ -925,43 +925,6 @@ def test_timestamp_edge_cases(fake: Faker) -> None:
     assert isinstance(actual, datetime.datetime)
     assert actual.tzinfo == datetime.timezone.utc
 
-    # Test timestamp generation when constraint min and max values are given as strings
-    actual = generate_fake_value(
-        dtype=TimestampType(),
-        fake=fake,
-        constraint=TimestampConstraint(
-            min_value="2020-01-01T00:00:00Z",
-            max_value="2020-01-01T00:00:00Z",
-            tzinfo=datetime.timezone.utc,
-        ),
-    )
-    expected = datetime.datetime(
-        year=2020,
-        month=1,
-        day=1,
-        hour=0,
-        minute=0,
-        second=0,
-        tzinfo=datetime.timezone.utc,
-    )
-    assert isinstance(actual, datetime.datetime)
-    assert actual == expected
-
-    actual = generate_fake_value(
-        dtype=TimestampNTZType(),
-        fake=fake,
-        constraint=TimestampNTZConstraint(
-            min_value="2020-01-01T00:00:00",
-            max_value="2020-01-01T00:00:00",
-        ),
-    )
-    expected = datetime.datetime(
-        year=2020, month=1, day=1, hour=0, minute=0, second=0, microsecond=0
-    )
-    expected = expected.replace(tzinfo=None)  # Ensure no timezone
-    assert isinstance(actual, datetime.datetime)
-    assert actual == expected
-
 
 def test_unknown_string_type(fake: Faker) -> None:
     # Test handling of unknown string type
@@ -1124,6 +1087,102 @@ def test_convert_dict_to_constraint(fake: Faker) -> None:
     assert isinstance(result, DecimalConstraint)
     assert result.min_value == Decimal("99")
     assert result.max_value == Decimal("100")
+
+    # Test giving a DecimalConstraint min_value and max_value invalid types
+    with pytest.raises(ValueError):
+        result = _convert_dict_to_constraint(
+            constraint={"min_value": 0.999, "max_value": "9.999"},
+            dtype=DecimalType(precision=4, scale=3),
+        )
+    with pytest.raises(ValueError):
+        result = _convert_dict_to_constraint(
+            constraint={"min_value": "0.999", "max_value": 9.999},
+            dtype=DecimalType(precision=4, scale=3),
+        )
+
+    # Test giving a DecimalConstraint allowed_values as strings, ints, and Decimals
+    result = _convert_dict_to_constraint(
+        constraint={"allowed_values": [0, -2, "1.23", Decimal("3.33")]},
+        dtype=DecimalType(precision=4, scale=3),
+    )
+    assert isinstance(result, DecimalConstraint)
+    assert result.allowed_values == [
+        Decimal("0"),
+        Decimal("-2"),
+        Decimal("1.23"),
+        Decimal("3.33"),
+    ]
+
+    # Test giving a DecimalConstraint allowed_values and invalid type
+    with pytest.raises(ValueError):
+        result = _convert_dict_to_constraint(
+            constraint={"allowed_values": [0, -2, "1.23", 1.23, Decimal("3.33")]},
+            dtype=DecimalType(precision=4, scale=3),
+        )
+
+    # Test giving TimestampConstraint min_value and max_value as strings
+    result = _convert_dict_to_constraint(
+        constraint={
+            "min_value": "2025-01-01T00:00:00.000Z",
+            "max_value": "2025-03-03T03:00:00.000Z",
+        },
+        dtype=TimestampType(),
+    )
+    assert isinstance(result, TimestampConstraint)
+    assert result.min_value == datetime.datetime.fromisoformat(
+        "2025-01-01T00:00:00.000Z"
+    )
+    assert result.max_value == datetime.datetime.fromisoformat(
+        "2025-03-03T03:00:00.000Z"
+    )
+
+    # Test giving a TimestampConstraint allowed_values as strings and datetime.datetimes
+    result = _convert_dict_to_constraint(
+        constraint={
+            "allowed_values": [
+                "2025-01-01T01:02:03.000Z",
+                datetime.datetime.fromisoformat("2025-04-04T01:02:03.000Z"),
+            ]
+        },
+        dtype=TimestampType(),
+    )
+    assert isinstance(result, TimestampConstraint)
+    assert result.allowed_values == [
+        datetime.datetime.fromisoformat("2025-01-01T01:02:03.000Z"),
+        datetime.datetime.fromisoformat("2025-04-04T01:02:03.000Z"),
+    ]
+
+    # Test giving TimestampNTZConstraint min_value and max_value as strings
+    result = _convert_dict_to_constraint(
+        constraint={
+            "min_value": "2025-01-01T00:00:00.000",
+            "max_value": "2025-03-03T03:00:00.000",
+        },
+        dtype=TimestampNTZType(),
+    )
+    assert isinstance(result, TimestampNTZConstraint)
+    assert result.min_value == datetime.datetime.fromisoformat(
+        "2025-01-01T00:00:00.000"
+    )
+    assert result.max_value == datetime.datetime.fromisoformat(
+        "2025-03-03T03:00:00.000"
+    )
+
+    # Test giving a TimestampNTZConstraint allowed_values as strings and datetime.datetimes
+    result = _convert_dict_to_constraint(
+        constraint={
+            "allowed_values": [
+                "2025-01-01T01:02:03.000",
+                datetime.datetime.fromisoformat("2025-04-04T01:02:03.000"),
+            ]
+        },
+        dtype=TimestampNTZType(),
+    )
+    assert isinstance(result, TimestampNTZConstraint)
+    assert result.allowed_values == [
+        datetime.datetime.fromisoformat("2025-01-01T01:02:03.000"),
+        datetime.datetime.fromisoformat("2025-04-04T01:02:03.000"),
+    ]
 
     # Test every supported dtype with default constraints when given empty dict
     for dtype, expected_constraint in [

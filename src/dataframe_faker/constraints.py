@@ -117,17 +117,17 @@ class BooleanConstraint(Constraint):
 
 @dataclass(kw_only=True)
 class DateConstraint(Constraint):
-    min_value: datetime.date = datetime.date(year=2020, month=1, day=1)
-    max_value: datetime.date = datetime.date(year=2024, month=12, day=31)
+    min_value: datetime.date | str = datetime.date(year=2020, month=1, day=1)
+    max_value: datetime.date | str = datetime.date(year=2024, month=12, day=31)
     allowed_values: list[datetime.date] | None = None
 
 
 @dataclass(kw_only=True)
 class TimestampConstraint(Constraint):
-    min_value: datetime.datetime = datetime.datetime(
+    min_value: datetime.datetime | str = datetime.datetime(
         year=2020, month=1, day=1, tzinfo=datetime.timezone.utc
     )
-    max_value: datetime.datetime = datetime.datetime(
+    max_value: datetime.datetime | str = datetime.datetime(
         year=2024, month=12, day=31, tzinfo=datetime.timezone.utc
     )
     tzinfo: datetime.tzinfo | None = None
@@ -136,10 +136,10 @@ class TimestampConstraint(Constraint):
 
 @dataclass(kw_only=True)
 class TimestampNTZConstraint(Constraint):
-    min_value: datetime.datetime = datetime.datetime(
+    min_value: datetime.datetime | str = datetime.datetime(
         year=2020, month=1, day=1, tzinfo=None
     )
-    max_value: datetime.datetime = datetime.datetime(
+    max_value: datetime.datetime | str = datetime.datetime(
         year=2024, month=12, day=31, tzinfo=None
     )
     allowed_values: list[datetime.datetime] | None = None

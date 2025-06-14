@@ -925,6 +925,43 @@ def test_timestamp_edge_cases(fake: Faker) -> None:
     assert isinstance(actual, datetime.datetime)
     assert actual.tzinfo == datetime.timezone.utc
 
+    # Test timestamp generation when constraint min and max values are given as strings
+    actual = generate_fake_value(
+        dtype=TimestampType(),
+        fake=fake,
+        constraint=TimestampConstraint(
+            min_value="2020-01-01T00:00:00Z",
+            max_value="2020-01-01T00:00:00Z",
+            tzinfo=datetime.timezone.utc,
+        ),
+    )
+    expected = datetime.datetime(
+        year=2020,
+        month=1,
+        day=1,
+        hour=0,
+        minute=0,
+        second=0,
+        tzinfo=datetime.timezone.utc,
+    )
+    assert isinstance(actual, datetime.datetime)
+    assert actual == expected
+
+    actual = generate_fake_value(
+        dtype=TimestampNTZType(),
+        fake=fake,
+        constraint=TimestampNTZConstraint(
+            min_value="2020-01-01T00:00:00",
+            max_value="2020-01-01T00:00:00",
+        ),
+    )
+    expected = datetime.datetime(
+        year=2020, month=1, day=1, hour=0, minute=0, second=0, microsecond=0
+    )
+    expected = expected.replace(tzinfo=None)  # Ensure no timezone
+    assert isinstance(actual, datetime.datetime)
+    assert actual == expected
+
 
 def test_unknown_string_type(fake: Faker) -> None:
     # Test handling of unknown string type

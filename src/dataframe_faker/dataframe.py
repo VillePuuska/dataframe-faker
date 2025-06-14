@@ -83,6 +83,21 @@ def generate_fake_dataframe(
     if isinstance(schema, str):
         schema = _convert_schema_string_to_schema(schema=schema, spark=spark)
 
+    data = _generate_fake_rows(
+        schema=schema,
+        constraints=constraints,
+        rows=rows,
+        fake=fake,
+    )
+    return spark.createDataFrame(data=data, schema=schema)
+
+
+def _generate_fake_rows(
+    schema: StructType,
+    constraints: dict[str, Constraint | dict[str, Any] | None] | None = None,
+    rows: int = 100,
+    fake: Faker | None = None,
+) -> list[Any]:
     if constraints is None:
         dataframe_constraint = None
     else:
@@ -103,13 +118,11 @@ def generate_fake_dataframe(
     if fake is None:
         fake = Faker()
 
-    # Somehow pyright thinks list[dict[str, Any]] does not match any of the `spark.createDataFrame()`
-    # overloads, but list[Any] does. Go figure...
-    data: list[Any] = [
+    data = [
         generate_fake_value(dtype=schema, fake=fake, constraint=dataframe_constraint)
         for _ in range(rows)
     ]
-    return spark.createDataFrame(data=data, schema=schema)
+    return data
 
 
 def _convert_schema_string_to_schema(schema: str, spark: SparkSession) -> StructType:
@@ -291,12 +304,21 @@ def generate_fake_value(
                 constraint = TimestampConstraint()
             constraint = cast(TimestampConstraint, constraint)
 
+            if isinstance(constraint.min_value, str):
+                min_value = datetime.datetime.fromisoformat(constraint.min_value)
+            else:
+                min_value = constraint.min_value
+            if isinstance(constraint.max_value, str):
+                max_value = datetime.datetime.fromisoformat(constraint.max_value)
+            else:
+                max_value = constraint.max_value
+
             if dtype == TimestampNTZType():
                 tzinfo = None
-                if constraint.min_value.tzinfo is not None:
-                    constraint.min_value = constraint.min_value.replace(tzinfo=None)
-                if constraint.max_value.tzinfo is not None:
-                    constraint.max_value = constraint.max_value.replace(tzinfo=None)
+                if min_value.tzinfo is not None:
+                    min_value = min_value.replace(tzinfo=None)
+                if max_value.tzinfo is not None:
+                    max_value = max_value.replace(tzinfo=None)
             else:
                 # tzinfo for generated value is picked in the order
                 # constraint.tzinfo
@@ -307,32 +329,28 @@ def generate_fake_value(
                     tz
                     for tz in [
                         constraint.tzinfo,
-                        constraint.min_value.tzinfo,
-                        constraint.max_value.tzinfo,
+                        min_value.tzinfo,
+                        max_value.tzinfo,
                         datetime.timezone.utc,
                     ]
                     if tz is not None
                 ][0]
-                if constraint.min_value.tzinfo is None:
-                    constraint.min_value = constraint.min_value.replace(
-                        tzinfo=datetime.timezone.utc
-                    )
-                if constraint.max_value.tzinfo is None:
-                    constraint.max_value = constraint.max_value.replace(
-                        tzinfo=datetime.timezone.utc
-                    )
+                if min_value.tzinfo is None:
+                    min_value = min_value.replace(tzinfo=datetime.timezone.utc)
+                if max_value.tzinfo is None:
+                    max_value = max_value.replace(tzinfo=datetime.timezone.utc)
             dt = fake.date_time_between(
-                start_date=constraint.min_value,
-                end_date=constraint.max_value,
+                start_date=min_value,
+                end_date=max_value,
                 tzinfo=tzinfo,
             )
             # NOTE: For some reason Faker does not respect limits when generating
             # microseconds so the datetime can fall out of the given range.
             # The following replace is done to fix it.
-            if dt < constraint.min_value:
-                dt = dt.replace(microsecond=constraint.min_value.microsecond)
-            elif dt > constraint.max_value:
-                dt = dt.replace(microsecond=constraint.max_value.microsecond)
+            if dt < min_value:
+                dt = dt.replace(microsecond=min_value.microsecond)
+            elif dt > max_value:
+                dt = dt.replace(microsecond=max_value.microsecond)
             return dt
         case _:
             raise ValueError("Unsupported dtype")

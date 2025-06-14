@@ -34,17 +34,20 @@ df = generate_fake_dataframe(
             "string_type": "uuid4",
         },
         "json_message": {
-            "measurement": {
-                "min_value": 25.0,
-                "max_value": 100.0,
-            },
-            "dt": {
-                "min_value": datetime.datetime.fromisoformat(
-                    "2025-01-01T00:00:00.000Z"
-                ),
-                "max_value": datetime.datetime.fromisoformat(
-                    "2025-01-31T23:59:59.999Z"
-                ),
+            "null_chance": 0.5,
+            "element_constraints": {
+                "measurement": {
+                    "min_value": 25.0,
+                    "max_value": 100.0,
+                },
+                "dt": {
+                    "min_value": datetime.datetime.fromisoformat(
+                        "2025-01-01T00:00:00.000Z"
+                    ),
+                    "max_value": datetime.datetime.fromisoformat(
+                        "2025-01-31T23:59:59.999Z"
+                    ),
+                },
             },
         },
     },
@@ -60,6 +63,7 @@ df = generate_fake_dataframe(
     constraints={
         "uuid": StringConstraint(string_type="uuid4"),
         "json_message": StructConstraint(
+            null_chance=0.5,
             element_constraints={
                 "measurement": FloatConstraint(min_value=25.0, max_value=100.0),
                 "dt": TimestampConstraint(
@@ -70,7 +74,7 @@ df = generate_fake_dataframe(
                         "2025-01-31T23:59:59.999Z"
                     ),
                 ),
-            }
+            },
         ),
     },
     rows=5,

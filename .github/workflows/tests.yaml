@@ -93,10 +93,10 @@ jobs:
           python-version: "3.11"
 
       - name: run tests
-        run: uv run --group dev --python 3.11 --with pyspark==3.5.0 coverage run -m pytest
+        run: uv run --group dbr154 --no-dev coverage run -m pytest
       
       - name: coverage report
-        run: uv run --group dev --python 3.11 coverage report -m
+        run: uv run --group dbr154 --no-dev coverage report -m
 
   test-dbr-164:
     name: tests-dbr-164
@@ -112,7 +112,7 @@ jobs:
           python-version: "3.12.3"
 
       - name: run tests
-        run: uv run --group dev --python 3.12.3 --with pyspark==3.5.2 coverage run -m pytest
+        run: uv run --group dbr164 --no-dev coverage run -m pytest
       
       - name: coverage report
-        run: uv run --group dev --python 3.12.3 coverage report -m
+        run: uv run --group dbr164 --no-dev coverage report -m

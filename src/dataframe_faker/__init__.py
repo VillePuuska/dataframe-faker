@@ -18,6 +18,7 @@ from .constraints import (
     TimestampNTZConstraint,
 )
 from .dataframe import generate_fake_dataframe, generate_fake_value
+from .datasource import DATASOURCE_API_SUPPORTED, DataframeFaker
 
 __all__ = [
     "ArrayConstraint",
@@ -39,4 +40,6 @@ __all__ = [
     "TimestampNTZConstraint",
     "generate_fake_dataframe",
     "generate_fake_value",
+    "DATASOURCE_API_SUPPORTED",
+    "DataframeFaker",
 ]

@@ -5,7 +5,7 @@ description = "A simple helper for generating DataFrames filled with fake data w
 readme = "README.md"
 authors = [{ name = "Ville Puuska", email = "puuskaville@gmail.com" }]
 requires-python = ">=3.11"
-dependencies = ["faker>=36.1.1"]
+dependencies = ["faker>=36.1.1", "python-dateutil>=2.9.0.post0"]
 classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -13,6 +13,7 @@ classifiers = [
 
 [project.optional-dependencies]
 pyspark = ["pyspark>=3.5.0"]
+datasource = ["pyspark>=4.0.0", "pyarrow>=20.0.0"]
 
 [project.urls]
 Repository = "https://github.com/VillePuuska/dataframe-faker"
@@ -26,9 +27,46 @@ dev = [
     "mypy>=1.15.0",
     "pytest>=8.3.4",
     "ruff>=0.9.7",
-    "pyspark>=3.5.0",
+    "pyspark>=4.0.0",
+    "pyarrow>=20.0.0",
     "coverage>=7.6.12",
     "pyrefly>=0.16.2",
+    "pyarrow-stubs>=19.4",
+    "types-python-dateutil>=2.9.0.20250516",
+]
+dbr154 = [
+    "coverage>=7.9.1",
+    "pyspark==3.5.0",
+    "pytest>=8.4.0",
+]
+dbr164 = [
+    "coverage>=7.9.1",
+    "pyspark==3.5.2",
+    "pytest>=8.4.0",
+]
+
+[tool.uv]
+conflicts = [
+    [
+        { group = "dev" },
+        { group = "dbr154" },
+    ],
+    [
+        { extra = "datasource" },
+        { group = "dbr154" },
+    ],
+    [
+        { group = "dev" },
+        { group = "dbr164" },
+    ],
+    [
+        { extra = "datasource" },
+        { group = "dbr164" },
+    ],
+    [
+        { group = "dbr154" },
+        { group = "dbr164" },
+    ],
 ]
 
 [tool.ruff.lint]
@@ -36,5 +74,3 @@ extend-select = ["I"]
 
 [tool.pyrefly]
 project_includes = ["src"]
-project_excludes = ["tests"]
-search_path = ["src"]

@@ -1071,6 +1071,207 @@ def test_convert_dict_to_constraint(fake: Faker) -> None:
             dtype=StructType([StructField("field", IntegerType())]),
         )
 
+    # Test giving a DecimalConstraint min_value and max_value as strings and ints
+    result = _convert_dict_to_constraint(
+        constraint={"min_value": "0.999", "max_value": "9.999"},
+        dtype=DecimalType(precision=4, scale=3),
+    )
+    assert isinstance(result, DecimalConstraint)
+    assert result.min_value == Decimal("0.999")
+    assert result.max_value == Decimal("9.999")
+
+    result = _convert_dict_to_constraint(
+        constraint={"min_value": 99, "max_value": 100},
+        dtype=DecimalType(precision=3, scale=0),
+    )
+    assert isinstance(result, DecimalConstraint)
+    assert result.min_value == Decimal("99")
+    assert result.max_value == Decimal("100")
+
+    # Test giving a DecimalConstraint min_value and max_value invalid types
+    with pytest.raises(ValueError):
+        result = _convert_dict_to_constraint(
+            constraint={"min_value": 0.999, "max_value": "9.999"},
+            dtype=DecimalType(precision=4, scale=3),
+        )
+    with pytest.raises(ValueError):
+        result = _convert_dict_to_constraint(
+            constraint={"min_value": "0.999", "max_value": 9.999},
+            dtype=DecimalType(precision=4, scale=3),
+        )
+
+    # Test giving a DecimalConstraint allowed_values as strings, ints, and Decimals
+    result = _convert_dict_to_constraint(
+        constraint={"allowed_values": [0, -2, "1.23", Decimal("3.33")]},
+        dtype=DecimalType(precision=4, scale=3),
+    )
+    assert isinstance(result, DecimalConstraint)
+    assert result.allowed_values == [
+        Decimal("0"),
+        Decimal("-2"),
+        Decimal("1.23"),
+        Decimal("3.33"),
+    ]
+
+    # Test giving a DecimalConstraint allowed_values and invalid type
+    with pytest.raises(ValueError):
+        result = _convert_dict_to_constraint(
+            constraint={"allowed_values": [0, -2, "1.23", 1.23, Decimal("3.33")]},
+            dtype=DecimalType(precision=4, scale=3),
+        )
+
+    # Test giving TimestampConstraint min_value and max_value as strings
+    result = _convert_dict_to_constraint(
+        constraint={
+            "min_value": "2025-01-01T00:00:00.000Z",
+            "max_value": "2025-03-03T03:00:00.000Z",
+        },
+        dtype=TimestampType(),
+    )
+    assert isinstance(result, TimestampConstraint)
+    assert result.min_value == datetime.datetime.fromisoformat(
+        "2025-01-01T00:00:00.000Z"
+    )
+    assert result.max_value == datetime.datetime.fromisoformat(
+        "2025-03-03T03:00:00.000Z"
+    )
+
+    # Test giving a TimestampConstraint allowed_values as strings and datetime.datetimes
+    result = _convert_dict_to_constraint(
+        constraint={
+            "allowed_values": [
+                "2025-01-01T01:02:03.000Z",
+                datetime.datetime.fromisoformat("2025-04-04T01:02:03.000Z"),
+            ]
+        },
+        dtype=TimestampType(),
+    )
+    assert isinstance(result, TimestampConstraint)
+    assert result.allowed_values == [
+        datetime.datetime.fromisoformat("2025-01-01T01:02:03.000Z"),
+        datetime.datetime.fromisoformat("2025-04-04T01:02:03.000Z"),
+    ]
+
+    # Test giving TimestampNTZConstraint min_value and max_value as strings
+    result = _convert_dict_to_constraint(
+        constraint={
+            "min_value": "2025-01-01T00:00:00.000",
+            "max_value": "2025-03-03T03:00:00.000",
+        },
+        dtype=TimestampNTZType(),
+    )
+    assert isinstance(result, TimestampNTZConstraint)
+    assert result.min_value == datetime.datetime.fromisoformat(
+        "2025-01-01T00:00:00.000"
+    )
+    assert result.max_value == datetime.datetime.fromisoformat(
+        "2025-03-03T03:00:00.000"
+    )
+
+    # Test giving a TimestampNTZConstraint allowed_values as strings and datetime.datetimes
+    result = _convert_dict_to_constraint(
+        constraint={
+            "allowed_values": [
+                "2025-01-01T01:02:03.000",
+                datetime.datetime.fromisoformat("2025-04-04T01:02:03.000"),
+            ]
+        },
+        dtype=TimestampNTZType(),
+    )
+    assert isinstance(result, TimestampNTZConstraint)
+    assert result.allowed_values == [
+        datetime.datetime.fromisoformat("2025-01-01T01:02:03.000"),
+        datetime.datetime.fromisoformat("2025-04-04T01:02:03.000"),
+    ]
+
+    # Test giving DateConstraint min_value and max_value as strings
+    result = _convert_dict_to_constraint(
+        constraint={
+            "min_value": "2025-01-01",
+            "max_value": "Mar 3 2025",
+        },
+        dtype=DateType(),
+    )
+    assert isinstance(result, DateConstraint)
+    assert (
+        result.min_value
+        == datetime.datetime.fromisoformat("2025-01-01T00:00:00.000Z").date()
+    )
+    assert (
+        result.max_value
+        == datetime.datetime.fromisoformat("2025-03-03T03:00:00.000Z").date()
+    )
+
+    # Test giving a DateConstraint allowed_values as strings and datetime.dates
+    result = _convert_dict_to_constraint(
+        constraint={
+            "allowed_values": [
+                "2025-01-01",
+                datetime.datetime.fromisoformat("2025-04-04T01:02:03.000Z").date(),
+            ]
+        },
+        dtype=DateType(),
+    )
+    assert isinstance(result, DateConstraint)
+    assert result.allowed_values == [
+        datetime.datetime.fromisoformat("2025-01-01T01:02:03.000Z").date(),
+        datetime.datetime.fromisoformat("2025-04-04T01:02:03.000Z").date(),
+    ]
+
+    # Test giving DayTimeIntervalConstraint min_value and max_value as strings
+    for string_interval, expected in [
+        ("2 microseconds", datetime.timedelta(microseconds=2)),
+        ("2 milliseconds", datetime.timedelta(milliseconds=2)),
+        ("2 seconds", datetime.timedelta(seconds=2)),
+        ("2 minutes", datetime.timedelta(minutes=2)),
+        ("2 hours", datetime.timedelta(hours=2)),
+        ("2 days", datetime.timedelta(days=2)),
+        ("2 weeks", datetime.timedelta(weeks=2)),
+    ]:
+        result = _convert_dict_to_constraint(
+            constraint={
+                "min_value": string_interval,
+                "max_value": string_interval,
+            },
+            dtype=DayTimeIntervalType(),
+        )
+        assert isinstance(result, DayTimeIntervalConstraint)
+        assert result.min_value == expected
+        assert result.max_value == expected
+
+    # Test giving DayTimeIntervalConstraint allowed_values as strings
+    # ("2 microseconds", datetime.timedelta(microseconds=2)),
+    # ("2 milliseconds", datetime.timedelta(milliseconds=2)),
+    # ("2 seconds", datetime.timedelta(seconds=2)),
+    # ("2 minutes", datetime.timedelta(minutes=2)),
+    # ("2 hours", datetime.timedelta(hours=2)),
+    # ("2 days", datetime.timedelta(days=2)),
+    # ("2 weeks", datetime.timedelta(weeks=2)),
+    result = _convert_dict_to_constraint(
+        constraint={
+            "allowed_values": [
+                "2 microseconds",
+                "2 milliseconds",
+                "2 seconds",
+                "2 minutes",
+                "2 hours",
+                "2 days",
+                "2 weeks",
+            ],
+        },
+        dtype=DayTimeIntervalType(),
+    )
+    assert isinstance(result, DayTimeIntervalConstraint)
+    assert result.allowed_values == [
+        datetime.timedelta(microseconds=2),
+        datetime.timedelta(milliseconds=2),
+        datetime.timedelta(seconds=2),
+        datetime.timedelta(minutes=2),
+        datetime.timedelta(hours=2),
+        datetime.timedelta(days=2),
+        datetime.timedelta(weeks=2),
+    ]
+
     # Test every supported dtype with default constraints when given empty dict
     for dtype, expected_constraint in [
         (ArrayType(elementType=IntegerType()), ArrayConstraint()),

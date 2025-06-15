@@ -5,6 +5,7 @@ from dataclasses import fields, is_dataclass
 from decimal import Decimal
 from typing import Any, cast
 
+from dateutil import parser
 from faker import Faker
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import (
@@ -83,6 +84,21 @@ def generate_fake_dataframe(
     if isinstance(schema, str):
         schema = _convert_schema_string_to_schema(schema=schema, spark=spark)
 
+    data = _generate_fake_rows(
+        schema=schema,
+        constraints=constraints,
+        rows=rows,
+        fake=fake,
+    )
+    return spark.createDataFrame(data=data, schema=schema)
+
+
+def _generate_fake_rows(
+    schema: StructType,
+    constraints: dict[str, Constraint | dict[str, Any] | None] | None = None,
+    rows: int = 100,
+    fake: Faker | None = None,
+) -> list[Any]:
     if constraints is None:
         dataframe_constraint = None
     else:
@@ -103,13 +119,11 @@ def generate_fake_dataframe(
     if fake is None:
         fake = Faker()
 
-    # Somehow pyright thinks list[dict[str, Any]] does not match any of the `spark.createDataFrame()`
-    # overloads, but list[Any] does. Go figure...
-    data: list[Any] = [
+    data = [
         generate_fake_value(dtype=schema, fake=fake, constraint=dataframe_constraint)
         for _ in range(rows)
     ]
-    return spark.createDataFrame(data=data, schema=schema)
+    return data
 
 
 def _convert_schema_string_to_schema(schema: str, spark: SparkSession) -> StructType:
@@ -291,6 +305,15 @@ def generate_fake_value(
                 constraint = TimestampConstraint()
             constraint = cast(TimestampConstraint, constraint)
 
+            # if isinstance(constraint.min_value, str):
+            #     min_value = datetime.datetime.fromisoformat(constraint.min_value)
+            # else:
+            #     min_value = constraint.min_value
+            # if isinstance(constraint.max_value, str):
+            #     max_value = datetime.datetime.fromisoformat(constraint.max_value)
+            # else:
+            #     max_value = constraint.max_value
+
             if dtype == TimestampNTZType():
                 tzinfo = None
                 if constraint.min_value.tzinfo is not None:
@@ -398,7 +421,7 @@ def _convert_dict_to_constraint(
     assert is_dataclass(result_constraint)
     for field in fields(result_constraint):
         if field.name in constraint:
-            value: dict[str, str | Constraint | None] | Constraint | None
+            value: Any
 
             if field.name == "element_constraints":
                 assert isinstance(dtype, StructType)
@@ -430,7 +453,123 @@ def _convert_dict_to_constraint(
             else:
                 value = constraint[field.name]
 
-            setattr(result_constraint, field.name, value)
+            if isinstance(dtype, DecimalType) and field.name in (
+                "min_value",
+                "max_value",
+            ):
+                if not isinstance(value, (str, int, Decimal)):
+                    raise ValueError(
+                        "For Decimals, min_value and max_value must be a string, an int, or a Decimal. "
+                        + f"Got {value.__class__} {value=} instead."
+                    )
+                setattr(result_constraint, field.name, Decimal(value))
+            elif isinstance(dtype, DecimalType) and field.name == "allowed_values":
+                if not isinstance(value, list):
+                    raise ValueError("allowed_values must be a list.")
+                decimal_values = []
+                for val in value:
+                    if not isinstance(val, (str, int, Decimal)):
+                        raise ValueError(
+                            "For Decimals, allowed_values must be strings, ints, or Decimals. "
+                            + f"Got {value.__class__} {value=} instead."
+                        )
+                    decimal_values.append(Decimal(val))
+                setattr(result_constraint, field.name, decimal_values)
+
+            elif isinstance(
+                dtype, (TimestampType, TimestampNTZType)
+            ) and field.name in (
+                "min_value",
+                "max_value",
+            ):
+                if isinstance(value, str):
+                    value = datetime.datetime.fromisoformat(value)
+                setattr(result_constraint, field.name, value)
+            elif (
+                isinstance(dtype, (TimestampType, TimestampNTZType))
+                and field.name == "allowed_values"
+            ):
+                if not isinstance(value, list):
+                    raise ValueError("allowed_values must be a list.")
+                datetime_values = []
+                for val in value:
+                    if isinstance(val, str):
+                        val = datetime.datetime.fromisoformat(val)
+                    datetime_values.append(val)
+                setattr(result_constraint, field.name, datetime_values)
+
+            elif isinstance(dtype, DateType) and field.name in (
+                "min_value",
+                "max_value",
+            ):
+                if isinstance(value, str):
+                    value = parser.parse(value).date()
+                setattr(result_constraint, field.name, value)
+            elif isinstance(dtype, DateType) and field.name == "allowed_values":
+                if not isinstance(value, list):
+                    raise ValueError("allowed_values must be a list.")
+                datetime_values = []
+                for val in value:
+                    if isinstance(val, str):
+                        val = parser.parse(val).date()
+                    datetime_values.append(val)
+                setattr(result_constraint, field.name, datetime_values)
+
+            elif isinstance(dtype, DayTimeIntervalType) and field.name in (
+                "min_value",
+                "max_value",
+            ):
+                if isinstance(value, str):
+                    amount_str, unit = value.split(" ")
+                    amount = int(amount_str)
+                    match unit.lower():
+                        case "microseconds":
+                            value = datetime.timedelta(microseconds=amount)
+                        case "milliseconds":
+                            value = datetime.timedelta(milliseconds=amount)
+                        case "seconds":
+                            value = datetime.timedelta(seconds=amount)
+                        case "minutes":
+                            value = datetime.timedelta(minutes=amount)
+                        case "hours":
+                            value = datetime.timedelta(hours=amount)
+                        case "days":
+                            value = datetime.timedelta(days=amount)
+                        case "weeks":
+                            value = datetime.timedelta(weeks=amount)
+
+                setattr(result_constraint, field.name, value)
+            elif (
+                isinstance(dtype, DayTimeIntervalType)
+                and field.name == "allowed_values"
+            ):
+                if not isinstance(value, list):
+                    raise ValueError("allowed_values must be a list.")
+                datetime_values = []
+                for val in value:
+                    if isinstance(val, str):
+                        amount_str, unit = val.split(" ")
+                        amount = int(amount_str)
+                        match unit.lower():
+                            case "microseconds":
+                                val = datetime.timedelta(microseconds=amount)
+                            case "milliseconds":
+                                val = datetime.timedelta(milliseconds=amount)
+                            case "seconds":
+                                val = datetime.timedelta(seconds=amount)
+                            case "minutes":
+                                val = datetime.timedelta(minutes=amount)
+                            case "hours":
+                                val = datetime.timedelta(hours=amount)
+                            case "days":
+                                val = datetime.timedelta(days=amount)
+                            case "weeks":
+                                val = datetime.timedelta(weeks=amount)
+                    datetime_values.append(val)
+                setattr(result_constraint, field.name, datetime_values)
+
+            else:
+                setattr(result_constraint, field.name, value)
 
     return result_constraint
 
